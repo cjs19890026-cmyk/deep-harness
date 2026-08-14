@@ -24,6 +24,8 @@ export interface DshSettings {
   showThinking: boolean;
   /** Show tool call blocks in the chat. */
   showTools: boolean;
+  /** Max history entries kept (10-200). */
+  historyLimit: number;
 }
 
 export const DEFAULT_SETTINGS: DshSettings = {
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: DshSettings = {
   permissionMode: 'workspace-write',
   showThinking: true,
   showTools: true,
+  historyLimit: 50,
 };
 
 export const MODEL_OPTIONS = [
@@ -237,6 +240,20 @@ export class DshSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           this.plugin.settings.showTools = value;
           await this.plugin.saveSettings();
+        }));
+
+    // History limit
+    new Setting(containerEl)
+      .setName('历史记录条数')
+      .setDesc('输入框上方「历史记录」面板最多保留多少条记录,超出自动删除最旧的。')
+      .addSlider((slider) => slider
+        .setLimits(10, 200, 10)
+        .setValue(this.plugin.settings.historyLimit)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.historyLimit = value;
+          await this.plugin.saveSettings();
+          this.plugin.history?.setLimit(value);
         }));
 
     // Custom persona

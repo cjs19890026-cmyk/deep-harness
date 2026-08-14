@@ -1,12 +1,23 @@
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App, Setting, Menu } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App, Setting, Menu, Component } from 'obsidian';
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
 import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS } from './settings';
 import { ContextMeter, estimateTokens } from './context-meter';
+import { HistoryTool } from './history';
 import { t } from './i18n';
 
 export const VIEW_TYPE_CHAT = 'dsh-obsidian-chat';
+
+/** Compact timestamp for the narrow history panel. */
+function formatShortTime(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (d.toDateString() === now.toDateString()) return `${hh}:${mm}`;
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${hh}:${mm}`;
+}
 
 /** Rough fixed token cost of the vault persona system prompt (built-in rules). */
 const PERSONA_FIXED_TOKENS = 250;
@@ -128,6 +139,8 @@ export class ChatView extends ItemView {
   private sendButton: HTMLButtonElement;
   private modelTrigger: HTMLButtonElement;
   private securityTrigger: HTMLButtonElement;
+  private historyBtn: HTMLButtonElement;
+  private historyPanel: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
   private statusTimer: number | null = null;
   private statusStartedAt = 0;
@@ -172,13 +185,20 @@ export class ChatView extends ItemView {
     title.createSpan({ cls: 'dsh-header-sub', text: 'DeepSeek Harness' });
 
     const clearBtn = header.createEl('button', { cls: 'dsh-icon-btn' });
-    setIcon(clearBtn, 'trash-2');
+    setIcon(clearBtn, 'pen');
     clearBtn.setAttribute('aria-label', t('chat.clear'));
     clearBtn.onclick = () => this.clearChat();
 
     // Messages
     this.messagesContainer = container.createDiv({ cls: 'dsh-messages' });
     this.showWelcome();
+
+    // Top toolbar (above the composer): history (right-aligned, minimal icon)
+    const topToolbar = container.createDiv({ cls: 'dsh-top-toolbar' });
+    this.historyBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-history' });
+    setIcon(this.historyBtn, 'clock');
+    this.historyBtn.setAttribute('aria-label', '历史记录');
+    this.historyBtn.onclick = () => this.toggleHistoryPanel();
 
     // Composer card: textarea + toolbar (model/effort/security/meter/send)
     const composer = container.createDiv({ cls: 'dsh-composer' });
@@ -309,6 +329,7 @@ export class ChatView extends ItemView {
   }
 
   onClose(): Promise<void> {
+    this.closeHistoryPanel();
     this.client.dispose();
     if (this.statusTimer !== null) window.clearInterval(this.statusTimer);
     return Promise.resolve();
@@ -336,6 +357,8 @@ export class ChatView extends ItemView {
   }
 
   private clearChat(): void {
+    // Archive the current session into history, then start a new one.
+    void this.plugin.history?.endSession();
     this.memory = [];
     this.contextMeter?.reset();
     this.messagesContainer.empty();
@@ -426,7 +449,10 @@ export class ChatView extends ItemView {
       status: HTMLElement;
       chevron: HTMLElement;
       content: HTMLElement;
+      name: string;
+      args: string;
     }>();
+    const toolsHistory: HistoryTool[] = [];
     let thinkingText = '';
     const handleStreamLine = (line: string): void => {
       if (!line.startsWith('DLEVENT\t')) return;
@@ -466,7 +492,7 @@ export class ChatView extends ItemView {
             content.classList.toggle('hidden', !collapsed);
             setIcon(chevron, collapsed ? 'chevron-down' : 'chevron-right');
           };
-          toolRows.set(evt.id, { status, chevron, content });
+          toolRows.set(evt.id, { status, chevron, content, name: evt.name ?? 'tool', args: evt.argsFull ?? evt.args ?? '' });
         } else if (evt.status === 'result') {
           const entry = evt.id ? toolRows.get(evt.id) : undefined;
           if (entry) {
@@ -483,6 +509,13 @@ export class ChatView extends ItemView {
               : evt.ok ? '(执行完成,无输出)' : '(执行失败)';
             // Tools stay collapsed by default; result visible when expanded.
             entry.content.createDiv({ cls: 'dsh-tool-line', text: lineText });
+            // Collect for history
+            toolsHistory.push({
+              name: entry.name,
+              args: entry.args,
+              ok: evt.ok !== false,
+              summary: evt.summary || undefined,
+            });
           }
         }
         this.scrollToBottom();
@@ -532,6 +565,19 @@ export class ChatView extends ItemView {
           assistant: answer.split('\n')[0].slice(0, 200),
         });
         if (this.memory.length > 20) this.memory.shift();
+        // Persist this turn into the current session
+        void this.plugin.history?.addTurn({
+          ts: Date.now(),
+          user: message,
+          answer,
+          thinking: mergedThinking || undefined,
+          tools: toolsHistory.length > 0 ? toolsHistory : undefined,
+          durationMs: result.durationMs,
+        }, {
+          model: this.plugin.settings.model,
+          effort: this.plugin.settings.reasoningEffort,
+          permission: this.plugin.settings.permissionMode,
+        });
       }
     } catch (e) {
       this.stopStatusTimer();
@@ -714,4 +760,171 @@ export class ChatView extends ItemView {
     this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 200) + 'px';
     this.scrollToBottom();
   }
+
+  /** Resume an archived session: re-activate it so new turns append back. */
+  private async resumeSession(s: import('./history').SessionRecord): Promise<void> {
+    const activated = await this.plugin.history?.activateSession(s.id);
+    if (!activated) {
+      new Notice('恢复会话失败');
+      return;
+    }
+    // Rebuild context memory from the most recent turns (used for refill).
+    this.memory = activated.turns.slice(-20).map((t) => ({
+      user: t.user,
+      assistant: t.answer.split('\n')[0].slice(0, 200),
+    }));
+    // Restore the transcript so the conversation is visible again.
+    this.messagesContainer.empty();
+    for (const t of activated.turns) {
+      this.renderMessage('user', t.user);
+      this.renderMessage('assistant', t.answer, false);
+    }
+    this.contextMeter?.reset();
+    this.scrollToBottom();
+    new Notice(`已恢复会话:${activated.title}`);
+  }
+
+  // ── History panel (floating, anchored to the toolbar icon) ─────────
+
+  private toggleHistoryPanel(): void {
+    if (this.historyPanel) {
+      this.closeHistoryPanel();
+      return;
+    }
+    this.openHistoryPanel();
+  }
+
+  private openHistoryPanel(): void {
+    this.closeHistoryPanel();
+    const panel = createDiv({ cls: 'dsh-history-panel' });
+    this.historyPanel = panel;
+
+    const sessions = this.plugin.history?.getSessions() ?? [];
+    if (sessions.length === 0) {
+      panel.createDiv({ cls: 'dsh-history-empty', text: '暂无会话' });
+    } else {
+      for (const s of sessions) {
+        const item = panel.createDiv({
+          cls: `dsh-history-panel-item${s.pinned ? ' is-pinned' : ''}`,
+        });
+
+        // Row 1: bubble icon + title + (rename / pin / delete) icons
+        const row1 = item.createDiv({ cls: 'dsh-history-row1' });
+        const bubble = row1.createSpan({ cls: 'dsh-history-bubble' });
+        setIcon(bubble, 'message-circle');
+        const title = row1.createSpan({ cls: 'dsh-history-panel-title', text: s.title });
+
+        const renameBtn = row1.createEl('button', { cls: 'dsh-history-act' });
+        setIcon(renameBtn, 'pencil');
+        renameBtn.setAttribute('aria-label', '重命名');
+        renameBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.renameInPanel(item, title, s);
+        };
+
+        const pinBtn = row1.createEl('button', { cls: `dsh-history-act${s.pinned ? ' is-active' : ''}` });
+        setIcon(pinBtn, 'pin');
+        pinBtn.setAttribute('aria-label', s.pinned ? '取消固定' : '固定到顶部');
+        pinBtn.onclick = (e) => {
+          e.stopPropagation();
+          void this.plugin.history?.togglePin(s.id).then(() => this.openHistoryPanel());
+        };
+
+        const delBtn = row1.createEl('button', { cls: 'dsh-history-act' });
+        setIcon(delBtn, 'x');
+        delBtn.setAttribute('aria-label', '删除会话');
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          void this.plugin.history?.removeSession(s.id).then(() => this.openHistoryPanel());
+        };
+
+        // Row 2: date + editable note
+        const row2 = item.createDiv({ cls: 'dsh-history-row2' });
+        row2.createSpan({ cls: 'dsh-history-date', text: new Date(s.endedAt).toLocaleString() });
+        const note = row2.createSpan({ cls: 'dsh-history-note', text: s.note || '添加备注…' });
+        note.onclick = (e) => {
+          e.stopPropagation();
+          this.editNoteInPanel(note, s);
+        };
+
+        // Click the item anywhere (not on a button) → resume the session
+        item.onclick = () => {
+          this.closeHistoryPanel();
+          this.resumeSession(s);
+        };
+      }
+    }
+
+    document.body.appendChild(panel);
+
+    // Anchor: the panel's bottom-right corner sits against the icon.
+    const rect = this.historyBtn.getBoundingClientRect();
+    panel.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
+    panel.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+
+    setTimeout(() => {
+      document.addEventListener('mousedown', this.onHistoryOutside);
+    }, 0);
+    document.addEventListener('keydown', this.onHistoryKeydown);
+  }
+
+  /** Inline rename of a session title inside the panel. */
+  private renameInPanel(item: HTMLElement, titleEl: HTMLElement, s: import('./history').SessionRecord): void {
+    const input = createEl('input', { cls: 'dsh-history-rename-input' });
+    input.value = s.title;
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+    const commit = (): void => {
+      const v = input.value.trim();
+      if (v) void this.plugin.history?.renameSession(s.id, v);
+      this.openHistoryPanel();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { this.openHistoryPanel(); }
+    });
+    input.addEventListener('blur', commit);
+    input.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  /** Inline note editing inside the panel. */
+  private editNoteInPanel(noteEl: HTMLElement, s: import('./history').SessionRecord): void {
+    const input = createEl('input', { cls: 'dsh-history-note-input' });
+    input.value = s.note || '';
+    input.placeholder = '添加备注…';
+    noteEl.replaceWith(input);
+    input.focus();
+    const commit = (): void => {
+      void this.plugin.history?.setNote(s.id, input.value);
+      this.openHistoryPanel();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { this.openHistoryPanel(); }
+    });
+    input.addEventListener('blur', commit);
+    input.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  private closeHistoryPanel(): void {
+    if (this.historyPanel) {
+      this.historyPanel.remove();
+      this.historyPanel = null;
+    }
+    document.removeEventListener('mousedown', this.onHistoryOutside);
+    document.removeEventListener('keydown', this.onHistoryKeydown);
+  }
+
+  private onHistoryOutside = (e: MouseEvent): void => {
+    if (this.historyPanel && !this.historyPanel.contains(e.target as Node)) {
+      this.closeHistoryPanel();
+    }
+  };
+
+  private onHistoryKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this.closeHistoryPanel();
+    }
+  };
 }

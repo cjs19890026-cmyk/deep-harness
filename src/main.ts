@@ -2,17 +2,25 @@ import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { DshSettings, DshSettingTab, DEFAULT_SETTINGS, obsidianLocale } from './settings';
 import { ChatView, VIEW_TYPE_CHAT } from './chat-view';
 import { DshRunner } from './dsh-runner';
+import { HistoryStore } from './history';
 import { setLocale, resolveLocale } from './i18n';
 
 export default class DshPlugin extends Plugin {
   settings: DshSettings;
   private runner: DshRunner;
   private vaultPatchInvalidated = false;
+  history: HistoryStore | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.applyLocale();
     this.runner = new DshRunner(this.settings);
+
+    // History store: human-readable task history in the plugin DSH_HOME.
+    // NOTE: vault.adapter paths are relative to the vault root (not absolute).
+    const historyFile = '.obsidian/plugins/dsh-obsidian/dsh-home/history.json';
+    this.history = new HistoryStore(this.app, historyFile, this.settings.historyLimit);
+    await this.history.load();
 
     // Register chat view
     this.registerView(VIEW_TYPE_CHAT, (leaf: WorkspaceLeaf) => new ChatView(leaf, this));

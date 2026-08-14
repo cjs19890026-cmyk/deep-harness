@@ -524,6 +524,39 @@
   50% { opacity: 0.55; }
 }
 
+/* ── Top toolbar (above composer): minimal, right-aligned ── */
+.dsh-top-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 4px 12px 0;
+}
+
+.dsh-top-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 3px;
+  line-height: 0;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.dsh-top-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dsh-top-btn:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
 /* ── Composer card (input + toolbar, web-UI style) ──────── */
 .dsh-composer {
   display: flex;
@@ -668,4 +701,387 @@
 
 .dsh-check-fail {
   color: var(--text-error);
+}
+
+/* ── History modal ──────────────────────────────────────── */
+.dsh-history-modal {
+  max-width: 520px;
+}
+
+.dsh-history-modal h3 {
+  margin: 0 0 12px;
+}
+
+.dsh-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.dsh-history-item {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  background: var(--background-primary);
+}
+
+.dsh-history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-ui-smaller);
+}
+
+.dsh-history-head.is-clickable {
+  cursor: pointer;
+}
+
+.dsh-history-time {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.dsh-history-meta {
+  color: var(--text-muted);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dsh-history-resend,
+.dsh-history-del {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.dsh-history-resend:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.dsh-history-del:hover {
+  color: var(--text-error);
+  background: var(--background-modifier-hover);
+}
+
+.dsh-history-user {
+  margin-top: 4px;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dsh-history-detail {
+  margin-top: 6px;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 6px;
+}
+
+.dsh-history-detail.hidden {
+  display: none;
+}
+
+.dsh-history-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.dsh-history-tool {
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dsh-history-think {
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  border-inline-start: 2px solid var(--background-modifier-border);
+}
+
+.dsh-history-answer {
+  font-size: var(--font-ui-small);
+}
+
+.dsh-history-clear {
+  width: 100%;
+}
+
+/* ── History floating panel (grows from the toolbar icon) ── */
+.dsh-history-panel {
+  position: fixed;
+  z-index: 1000;
+  width: 320px;
+  max-height: min(1000px, 65vh);
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transform-origin: bottom right;
+  animation: dsh-panel-grow 0.18s ease-out;
+}
+
+@keyframes dsh-panel-grow {
+  from { transform: scale(0.12); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.dsh-history-panel::-webkit-scrollbar {
+  width: 5px;
+}
+
+.dsh-history-panel::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 3px;
+}
+
+.dsh-history-panel-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.dsh-history-panel-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.dsh-history-panel-item.is-pinned {
+  background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+}
+
+.dsh-history-row1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dsh-history-bubble {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.dsh-history-bubble svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dsh-history-panel-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dsh-history-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+}
+
+.dsh-history-panel-item:hover .dsh-history-act {
+  opacity: 1;
+}
+
+.dsh-history-act:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.dsh-history-act.is-active {
+  opacity: 1;
+  color: var(--interactive-accent);
+}
+
+.dsh-history-act svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dsh-history-row2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-left: 20px;
+}
+
+.dsh-history-date {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dsh-history-note {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+  border-radius: var(--radius-s);
+  padding: 0 3px;
+}
+
+.dsh-history-note:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+
+.dsh-history-rename-input,
+.dsh-history-note-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--background-secondary);
+  border: 1px solid var(--interactive-accent);
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  font-size: 12px;
+  padding: 1px 5px;
+}
+
+.dsh-history-rename-input:focus,
+.dsh-history-note-input:focus {
+  outline: none;
+}
+
+.dsh-history-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 14px 8px;
+}
+
+/* ── Session detail modal ───────────────────────────────── */
+.dsh-history-session {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.dsh-history-turn {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  background: var(--background-primary);
+}
+
+.dsh-history-turn-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.dsh-history-turn-no {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-weight: 600;
+  flex: 1;
+}
+
+.dsh-history-toggle {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  padding: 2px 6px;
+  margin-top: 4px;
+}
+
+.dsh-history-toggle:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+/* ── Session header actions (rename / delete icons) ─────── */
+.dsh-history-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dsh-history-title-row .dsh-history-time {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-history-head-btn {
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.dsh-history-head-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dsh-history-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--background-secondary);
+  border: 1px solid var(--interactive-accent);
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  padding: 2px 6px;
+}
+
+.dsh-history-rename-input:focus {
+  outline: none;
 }
