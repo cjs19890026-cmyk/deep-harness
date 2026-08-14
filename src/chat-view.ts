@@ -395,25 +395,32 @@ export class ChatView extends ItemView {
 
     // Streaming assistant message: thinking + tools stream inline into the
     // message (web-UI style, no wrapper container), then the answer renders
-    // below them in the same message.
+    // below them in the same message. Both sections honor the settings
+    // show-thinking / show-tools toggles.
     const respEl = this.createMessageElement('assistant');
     const contentEl = respEl.querySelector('.dsh-message-content') as HTMLElement;
 
     // Collapsible thinking block, live-filled (auto-collapsed on completion)
-    const thinkBlock = contentEl.createDiv({ cls: 'dsh-think' });
-    const thinkToggle = thinkBlock.createEl('button', { cls: 'dsh-think-toggle' });
-    const thinkChevron = thinkToggle.createSpan({ cls: 'dsh-think-chevron' });
-    setIcon(thinkChevron, 'chevron-down');
-    thinkToggle.createSpan({ text: '思考过程' });
-    const thinkBody = thinkBlock.createDiv({ cls: 'dsh-think-body' });
-    thinkToggle.onclick = () => {
-      const collapsed = thinkBody.classList.contains('hidden');
-      thinkBody.classList.toggle('hidden', !collapsed);
-      setIcon(thinkChevron, collapsed ? 'chevron-down' : 'chevron-right');
-    };
+    let thinkBlock: HTMLElement | null = null;
+    let thinkBody: HTMLElement | null = null;
+    if (this.plugin.settings.showThinking) {
+      thinkBlock = contentEl.createDiv({ cls: 'dsh-think' });
+      const thinkToggle = thinkBlock.createEl('button', { cls: 'dsh-think-toggle' });
+      const thinkChevron = thinkToggle.createSpan({ cls: 'dsh-think-chevron' });
+      setIcon(thinkChevron, 'chevron-down');
+      thinkToggle.createSpan({ text: '思考过程' });
+      thinkBody = thinkBlock.createDiv({ cls: 'dsh-think-body' });
+      thinkToggle.onclick = () => {
+        const collapsed = thinkBody!.classList.contains('hidden');
+        thinkBody!.classList.toggle('hidden', !collapsed);
+        setIcon(thinkChevron, collapsed ? 'chevron-down' : 'chevron-right');
+      };
+    }
 
-    // Tool calls stream directly into the message body
-    const toolsWrap = contentEl.createDiv({ cls: 'dsh-stream-tools' });
+    // Tool calls stream directly into the message body (when enabled)
+    const toolsWrap = this.plugin.settings.showTools
+      ? contentEl.createDiv({ cls: 'dsh-stream-tools' })
+      : null;
 
     const toolRows = new Map<string, {
       status: HTMLElement;
@@ -431,9 +438,12 @@ export class ChatView extends ItemView {
       }
       if (evt.t === 'think' && typeof evt.text === 'string') {
         thinkingText += evt.text;
-        thinkBody.setText(thinkingText.length > 4000 ? `…${thinkingText.slice(-4000)}` : thinkingText);
+        if (thinkBody) {
+          thinkBody.setText(thinkingText.length > 4000 ? `…${thinkingText.slice(-4000)}` : thinkingText);
+        }
         this.scrollToBottom();
       } else if (evt.t === 'tool' && evt.status) {
+        if (!toolsWrap) return; // tool display disabled
         if (evt.status === 'start' && evt.id) {
           // One tool call block: clickable header + expanded content
           const call = toolsWrap.createDiv({ cls: 'dsh-tool-call' });
@@ -650,20 +660,22 @@ export class ChatView extends ItemView {
   private finalizeStreamMessage(
     respEl: HTMLElement,
     contentEl: HTMLElement,
-    thinkBlock: HTMLElement,
-    thinkBody: HTMLElement,
+    thinkBlock: HTMLElement | null,
+    thinkBody: HTMLElement | null,
     thinkingText: string,
     answer: string | null,
   ): void {
-    if (thinkingText && thinkingText.trim()) {
-      thinkBody.setText(thinkingText);
-      // Thinking is live-expanded while running, then auto-collapsed once
-      // the answer is complete (user can re-expand it).
-      thinkBody.classList.add('hidden');
-      const chevron = thinkBlock.querySelector('.dsh-think-chevron') as HTMLElement | null;
-      if (chevron) setIcon(chevron, 'chevron-right');
-    } else {
-      thinkBlock.remove();
+    if (thinkBlock && thinkBody) {
+      if (thinkingText && thinkingText.trim()) {
+        thinkBody.setText(thinkingText);
+        // Thinking is live-expanded while running, then auto-collapsed once
+        // the answer is complete (user can re-expand it).
+        thinkBody.classList.add('hidden');
+        const chevron = thinkBlock.querySelector('.dsh-think-chevron') as HTMLElement | null;
+        if (chevron) setIcon(chevron, 'chevron-right');
+      } else {
+        thinkBlock.remove();
+      }
     }
     if (answer) {
       void MarkdownRenderer.render(this.app, answer, contentEl, '', this);

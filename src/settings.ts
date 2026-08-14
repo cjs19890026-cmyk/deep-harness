@@ -20,6 +20,10 @@ export interface DshSettings {
   reasoningEffort: string;
   /** DSH sandbox mode: read-only | workspace-write | danger-full-access. */
   permissionMode: string;
+  /** Show the thinking (reasoning) block in the chat. */
+  showThinking: boolean;
+  /** Show tool call blocks in the chat. */
+  showTools: boolean;
 }
 
 export const DEFAULT_SETTINGS: DshSettings = {
@@ -35,6 +39,8 @@ export const DEFAULT_SETTINGS: DshSettings = {
   model: 'deepseek-v4-flash',
   reasoningEffort: 'high',
   permissionMode: 'workspace-write',
+  showThinking: true,
+  showTools: true,
 };
 
 export const MODEL_OPTIONS = [
@@ -210,6 +216,28 @@ export class DshSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    // Show/hide thinking block
+    new Setting(containerEl)
+      .setName('显示思考过程')
+      .setDesc('开启后,AI 回答前会显示可折叠的思考过程;关闭则不显示。')
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showThinking)
+        .onChange(async (value) => {
+          this.plugin.settings.showThinking = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // Show/hide tool calls
+    new Setting(containerEl)
+      .setName('显示工具调用')
+      .setDesc('开启后,AI 执行工具(如 bash、文件操作)时会显示调用记录;关闭则不显示。')
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showTools)
+        .onChange(async (value) => {
+          this.plugin.settings.showTools = value;
+          await this.plugin.saveSettings();
+        }));
 
     // Custom persona
     new Setting(containerEl)
