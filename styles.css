@@ -172,44 +172,123 @@
   border-color: var(--interactive-accent);
 }
 
+/* Message layer — claudian-style: uniform padding/radius on the message,
+   backgrounds only on user bubbles. */
 .dsh-message {
   display: flex;
   flex-direction: column;
-  max-width: 100%;
+  max-width: 95%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  word-wrap: break-word;
+  box-sizing: border-box;
 }
 
+/* User messages: claudian-style translucent dark bubble, right-aligned */
 .dsh-message-user {
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
   align-items: flex-end;
+  align-self: flex-end;
+  border-end-end-radius: 4px;
+}
+
+.dsh-message-user ::selection {
+  background: rgba(255, 255, 255, 0.35);
+  color: inherit;
 }
 
 .dsh-message-user .dsh-message-content {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  padding: 8px 12px;
-  border-radius: var(--radius-m) var(--radius-m) var(--radius-s) var(--radius-m);
-  max-width: 85%;
+  max-width: 100%;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+/* Assistant replies: claudian-style — transparent, full-width, no card */
 .dsh-message-assistant {
   align-items: flex-start;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  border-end-start-radius: 4px;
+  text-align: start;
 }
 
 .dsh-message-assistant .dsh-message-content {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  padding: 10px 12px;
-  border-radius: var(--radius-m) var(--radius-m) var(--radius-m) var(--radius-s);
+  background: transparent;
+  border: none;
+  padding: 0;
   max-width: 100%;
   width: 100%;
   box-sizing: border-box;
+  line-height: 1.5;
 }
 
-.dsh-message-system .dsh-message-content {
+/* Typography details ported from claudian's styles.css */
+.dsh-message-content p {
+  margin: 0 0 8px 0;
+}
+
+.dsh-message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.dsh-message-content ul,
+.dsh-message-content ol {
+  margin: 8px 0;
+  padding-inline-start: 20px;
+}
+
+.dsh-message-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.dsh-message-content th,
+.dsh-message-content td {
+  border: 1px solid var(--background-modifier-border);
+  padding: 6px 10px;
+  text-align: start;
+}
+
+.dsh-message-content th {
+  background: var(--background-secondary);
+  font-weight: 600;
+}
+
+.dsh-message-content tr:hover {
+  background: var(--background-secondary-alt);
+}
+
+/* Messages scrollbar (claudian-style slim) */
+.dsh-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dsh-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dsh-messages::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 3px;
+}
+
+.dsh-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--background-modifier-border-hover);
+}
+
+.dsh-message-system {
   background: var(--background-modifier-error) !important;
   color: var(--text-error);
   border-color: var(--background-modifier-error-hover);
+}
+
+.dsh-message-system .dsh-message-content {
+  background: transparent !important;
+  color: var(--text-error);
+  border: none;
 }
 
 .dsh-message-actions {
@@ -217,6 +296,197 @@
   gap: 4px;
   margin-top: 4px;
   padding-left: 4px;
+}
+
+/* ── Thinking block (collapsible) ───────────────────────── */
+.dsh-think {
+  margin-bottom: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+}
+
+.dsh-think-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-radius: var(--radius-s);
+  text-align: left;
+}
+
+.dsh-think-toggle:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.dsh-think-chevron {
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.dsh-think-body {
+  padding: 4px 10px 8px 24px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.dsh-think-body.hidden {
+  display: none;
+}
+
+/* Streaming tool calls: flow inside the message (no wrapper container) */
+.dsh-stream-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+/* Single tool call — claudian-style: clickable header + bordered content */
+.dsh-tool-call {
+  margin: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.dsh-error-inline {
+  color: var(--text-error);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dsh-tool-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: 4px;
+  text-align: left;
+  overflow: hidden;
+}
+
+.dsh-tool-header:hover {
+  background: var(--background-modifier-hover);
+}
+
+.dsh-tool-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-accent);
+}
+
+.dsh-tool-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dsh-tool-name {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  color: var(--text-normal);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dsh-tool-summary {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.dsh-tool-status {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.dsh-tool-status svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dsh-tool-status.status-running {
+  color: var(--text-accent);
+  animation: dsh-spin 1s linear infinite;
+}
+
+.dsh-tool-status.status-completed {
+  color: var(--color-green, #4caf50);
+  animation: none;
+}
+
+.dsh-tool-status.status-error {
+  color: var(--color-red, #f44336);
+  animation: none;
+}
+
+.dsh-tool-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.dsh-tool-chevron svg {
+  width: 12px;
+  height: 12px;
+}
+
+.dsh-tool-content {
+  padding: 2px 0 4px 10px;
+  margin-inline-start: 7px;
+  border-inline-start: 2px solid var(--background-modifier-border);
+}
+
+.dsh-tool-content.hidden {
+  display: none;
+}
+
+.dsh-tool-cmd {
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+
+.dsh-tool-line {
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes dsh-spin {
+  to { transform: rotate(360deg); }
 }
 
 .dsh-action-btn {

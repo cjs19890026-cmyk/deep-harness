@@ -11,6 +11,35 @@ export const VIEW_TYPE_CHAT = 'dsh-obsidian-chat';
 /** Rough fixed token cost of the vault persona system prompt (built-in rules). */
 const PERSONA_FIXED_TOKENS = 250;
 
+/**
+ * Split headless stdout into thinking blocks (DLEVENT/DTHINK lines emitted
+ * by the injected stream-relay plugin) and the final answer.
+ */
+export function parseHeadlessOutput(stdout: string): { thinking: string | null; answer: string } {
+  const thinkingParts: string[] = [];
+  const answerParts: string[] = [];
+  for (const line of stdout.split('\n')) {
+    if (line.startsWith('DLEVENT\t')) {
+      // Already consumed live by the run panel; skip.
+      continue;
+    }
+    if (line.startsWith('DTHINK\t')) {
+      const payload = line.slice('DTHINK\t'.length);
+      try {
+        thinkingParts.push(JSON.parse(payload) as string);
+      } catch {
+        thinkingParts.push(payload);
+      }
+    } else {
+      answerParts.push(line);
+    }
+  }
+  return {
+    thinking: thinkingParts.length > 0 ? thinkingParts.join('\n\n') : null,
+    answer: answerParts.join('\n').trim(),
+  };
+}
+
 interface MemoryTurn {
   user: string;
   assistant: string;
@@ -354,7 +383,8 @@ export class ChatView extends ItemView {
     if (this.contextMeter) {
       this.contextMeter.addTokens(PERSONA_FIXED_TOKENS + estimateTokens(task));
     }
-    const patchPath = await this.runner.ensureVaultPatch(vaultRoot);
+    const patches = await this.runner.ensureVaultPatch(vaultRoot);
+    const patchPaths = [patches.persona, patches.think].filter((p): p is string => p !== null);
     // Isolated DSH_HOME with the selected model + reasoning effort;
     // falls back to the user home when it cannot be prepared.
     const pluginHome = this.runner.ensurePluginDshHome(vaultRoot, {
@@ -363,11 +393,96 @@ export class ChatView extends ItemView {
     });
     const dshHome = pluginHome ?? this.runner.dshHome();
 
+    // Streaming assistant message: thinking + tools stream inline into the
+    // message (web-UI style, no wrapper container), then the answer renders
+    // below them in the same message.
+    const respEl = this.createMessageElement('assistant');
+    const contentEl = respEl.querySelector('.dsh-message-content') as HTMLElement;
+
+    // Collapsible thinking block, live-filled (auto-collapsed on completion)
+    const thinkBlock = contentEl.createDiv({ cls: 'dsh-think' });
+    const thinkToggle = thinkBlock.createEl('button', { cls: 'dsh-think-toggle' });
+    const thinkChevron = thinkToggle.createSpan({ cls: 'dsh-think-chevron' });
+    setIcon(thinkChevron, 'chevron-down');
+    thinkToggle.createSpan({ text: '思考过程' });
+    const thinkBody = thinkBlock.createDiv({ cls: 'dsh-think-body' });
+    thinkToggle.onclick = () => {
+      const collapsed = thinkBody.classList.contains('hidden');
+      thinkBody.classList.toggle('hidden', !collapsed);
+      setIcon(thinkChevron, collapsed ? 'chevron-down' : 'chevron-right');
+    };
+
+    // Tool calls stream directly into the message body
+    const toolsWrap = contentEl.createDiv({ cls: 'dsh-stream-tools' });
+
+    const toolRows = new Map<string, {
+      status: HTMLElement;
+      chevron: HTMLElement;
+      content: HTMLElement;
+    }>();
+    let thinkingText = '';
+    const handleStreamLine = (line: string): void => {
+      if (!line.startsWith('DLEVENT\t')) return;
+      let evt: { t?: string; text?: string; status?: string; id?: string; name?: string; args?: string; argsFull?: string; ok?: boolean; summary?: string };
+      try {
+        evt = JSON.parse(line.slice('DLEVENT\t'.length));
+      } catch {
+        return;
+      }
+      if (evt.t === 'think' && typeof evt.text === 'string') {
+        thinkingText += evt.text;
+        thinkBody.setText(thinkingText.length > 4000 ? `…${thinkingText.slice(-4000)}` : thinkingText);
+        this.scrollToBottom();
+      } else if (evt.t === 'tool' && evt.status) {
+        if (evt.status === 'start' && evt.id) {
+          // One tool call block: clickable header + expanded content
+          const call = toolsWrap.createDiv({ cls: 'dsh-tool-call' });
+          const header = call.createEl('button', { cls: 'dsh-tool-header' });
+          const icon = header.createSpan({ cls: 'dsh-tool-icon' });
+          setIcon(icon, 'wrench');
+          header.createSpan({ cls: 'dsh-tool-name', text: evt.name ?? 'tool' });
+          header.createSpan({ cls: 'dsh-tool-summary', text: evt.args ?? '' });
+          const status = header.createSpan({ cls: 'dsh-tool-status status-running' });
+          setIcon(status, 'loader-circle');
+          const chevron = header.createSpan({ cls: 'dsh-tool-chevron' });
+          setIcon(chevron, 'chevron-right');
+          const content = call.createDiv({ cls: 'dsh-tool-content hidden' });
+          // Show the full arguments (the detailed command) right away
+          if (evt.argsFull) {
+            content.createDiv({ cls: 'dsh-tool-cmd', text: evt.argsFull });
+          }
+          header.onclick = () => {
+            const collapsed = content.classList.contains('hidden');
+            content.classList.toggle('hidden', !collapsed);
+            setIcon(chevron, collapsed ? 'chevron-down' : 'chevron-right');
+          };
+          toolRows.set(evt.id, { status, chevron, content });
+        } else if (evt.status === 'result') {
+          const entry = evt.id ? toolRows.get(evt.id) : undefined;
+          if (entry) {
+            entry.status.classList.remove('status-running');
+            if (evt.ok) {
+              entry.status.classList.add('status-completed');
+              setIcon(entry.status, 'check');
+            } else {
+              entry.status.classList.add('status-error');
+              setIcon(entry.status, 'x');
+            }
+            const lineText = evt.summary
+              ? evt.summary
+              : evt.ok ? '(执行完成,无输出)' : '(执行失败)';
+            // Tools stay collapsed by default; result visible when expanded.
+            entry.content.createDiv({ cls: 'dsh-tool-line', text: lineText });
+          }
+        }
+        this.scrollToBottom();
+      }
+    };
+
     // Status line
     const statusEl = this.createStatusElement();
     this.startStatusTimer(statusEl);
 
-    let fullAnswer = '';
     try {
       const result = await this.client.run(task, {
         dshBin: bin,
@@ -377,30 +492,34 @@ export class ChatView extends ItemView {
         dshHome,
         toolsMode: this.plugin.settings.toolExecutionMode,
         permissionMode: this.plugin.settings.permissionMode,
-        patchPath: patchPath ?? undefined,
+        patchPath: patchPaths,
         timeoutMs: this.plugin.settings.timeoutSec * 1000,
         signal: this.abortController.signal,
+        onStdoutLine: handleStreamLine,
       });
 
       this.stopStatusTimer();
-      fullAnswer = result.stdout.trim();
 
       if (result.killed) {
-        // Stopped by user: keep it subtle — a small status note only,
-        // no full-width red message in the transcript.
+        // Stopped by user: keep it subtle — a small status note only.
         statusEl.setText(`⏹ ${t('chat.cancelled')}`);
-      } else if (result.exitCode !== 0 || !fullAnswer) {
+        this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, thinkingText, null);
+      } else if (result.exitCode !== 0 || !result.stdout.trim()) {
         const errMsg = this.extractError(result.stderr);
         statusEl.setText(`✗ ${t('chat.failed', { message: errMsg })}`);
         statusEl.addClass('dsh-status-error');
-        this.renderMessage('assistant', `> ❌ ${t('chat.failed', { message: errMsg })}`, true);
+        contentEl.createEl('span', { text: `> ❌ ${t('chat.failed', { message: errMsg })}`, cls: 'dsh-error-inline' });
+        this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, thinkingText, null);
       } else {
+        // Split reasoning blocks (DLEVENT/DTHINK lines) from the final answer.
+        const { thinking, answer } = parseHeadlessOutput(result.stdout);
+        const mergedThinking = thinking ?? (thinkingText ? thinkingText : null);
         statusEl.setText(`✓ ${t('chat.completed', { duration: String(Math.round(result.durationMs / 1000)) })}`);
-        this.renderMessage('assistant', fullAnswer, false);
+        this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, mergedThinking ?? '', answer);
         // Remember this turn for the next task
         this.memory.push({
           user: message,
-          assistant: fullAnswer.split('\n')[0].slice(0, 200),
+          assistant: answer.split('\n')[0].slice(0, 200),
         });
         if (this.memory.length > 20) this.memory.shift();
       }
@@ -409,7 +528,8 @@ export class ChatView extends ItemView {
       const msg = e instanceof Error ? e.message : String(e);
       statusEl.setText(`✗ ${t('chat.failed', { message: msg })}`);
       statusEl.addClass('dsh-status-error');
-      this.renderMessage('assistant', `> ❌ ${t('chat.failed', { message: msg })}`, true);
+      contentEl.createEl('span', { text: `> ❌ ${t('chat.failed', { message: msg })}`, cls: 'dsh-error-inline' });
+      this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, thinkingText, null);
     } finally {
       this.running = false;
       this.abortController = null;
@@ -477,16 +597,77 @@ export class ChatView extends ItemView {
     this.sendButton.removeClass('is-stop');
   }
 
-  private renderMessage(role: 'user' | 'assistant', content: string, isSystem = false): void {
+  /** Create a message wrapper element (used by streaming send). */
+  private createMessageElement(role: 'user' | 'assistant'): HTMLElement {
+    const el = this.messagesContainer.createDiv({
+      cls: `dsh-message dsh-message-${role}`,
+    });
+    el.createDiv({ cls: 'dsh-message-content' });
+    return el;
+  }
+
+  private renderMessage(
+    role: 'user' | 'assistant',
+    content: string,
+    isSystem = false,
+    thinking?: string | null,
+  ): void {
     const el = this.messagesContainer.createDiv({
       cls: `dsh-message dsh-message-${role}${isSystem ? ' dsh-message-system' : ''}`,
     });
     const contentEl = el.createDiv({ cls: 'dsh-message-content' });
     if (role === 'assistant') {
+      // Collapsible thinking block (shown before the answer)
+      if (thinking) {
+        this.renderThinkingBlock(contentEl, thinking);
+      }
       void MarkdownRenderer.render(this.app, content, contentEl, '', this);
       if (!isSystem) this.addMessageActions(el, content);
     } else {
       contentEl.setText(content);
+    }
+    this.scrollToBottom();
+  }
+
+  /** Collapsible "思考过程" block (default collapsed, plain text). */
+  private renderThinkingBlock(container: HTMLElement, thinking: string): void {
+    const block = container.createDiv({ cls: 'dsh-think' });
+    const toggle = block.createEl('button', { cls: 'dsh-think-toggle' });
+    const chevron = toggle.createSpan({ cls: 'dsh-think-chevron' });
+    setIcon(chevron, 'chevron-right');
+    toggle.createSpan({ text: '思考过程' });
+    const body = block.createDiv({ cls: 'dsh-think-body hidden' });
+    body.setText(thinking);
+    toggle.onclick = () => {
+      const collapsed = body.hasClass('hidden');
+      body.toggleClass('hidden', !collapsed);
+      if (collapsed) setIcon(chevron, 'chevron-down');
+      else setIcon(chevron, 'chevron-right');
+    };
+  }
+
+  /** Finalize the streaming message: collapse thinking, render the answer. */
+  private finalizeStreamMessage(
+    respEl: HTMLElement,
+    contentEl: HTMLElement,
+    thinkBlock: HTMLElement,
+    thinkBody: HTMLElement,
+    thinkingText: string,
+    answer: string | null,
+  ): void {
+    if (thinkingText && thinkingText.trim()) {
+      thinkBody.setText(thinkingText);
+      // Thinking is live-expanded while running, then auto-collapsed once
+      // the answer is complete (user can re-expand it).
+      thinkBody.classList.add('hidden');
+      const chevron = thinkBlock.querySelector('.dsh-think-chevron') as HTMLElement | null;
+      if (chevron) setIcon(chevron, 'chevron-right');
+    } else {
+      thinkBlock.remove();
+    }
+    if (answer) {
+      void MarkdownRenderer.render(this.app, answer, contentEl, '', this);
+      this.addMessageActions(respEl, answer);
     }
     this.scrollToBottom();
   }

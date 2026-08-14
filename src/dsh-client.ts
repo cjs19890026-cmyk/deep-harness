@@ -27,8 +27,8 @@ export interface DshRunOptions {
   toolsMode?: string;
   /** DSH sandbox mode: read-only | workspace-write | danger-full-access. */
   permissionMode?: string;
-  /** Path to a generated `--patch` overlay, if any. */
-  patchPath?: string;
+  /** Path(s) to generated `--patch` overlays (repeatable). */
+  patchPath?: string | string[];
   /** Kill the process after this many ms. 0 = no timeout. */
   timeoutMs?: number;
   /** Line-by-line stdout callback (used by the Phase-2 stream relay). */
@@ -66,8 +66,11 @@ export class DshClient {
   run(task: string, opts: DshRunOptions): Promise<DshRunResult> {
     return new Promise((resolve) => {
       const args = ['--profile', 'headless'];
-      if (opts.patchPath) {
-        args.push('--patch', opts.patchPath);
+      const patches = Array.isArray(opts.patchPath)
+        ? opts.patchPath
+        : opts.patchPath ? [opts.patchPath] : [];
+      for (const p of patches) {
+        args.push('--patch', p);
       }
       args.push(task);
 
@@ -120,10 +123,16 @@ export class DshClient {
       });
       this.child = child;
 
+      let stdoutBuffer = '';
+
       child.stdout.on('data', (chunk: Buffer) => {
         const text = chunk.toString('utf8');
+        // Always accumulate the full stdout (final answer may span lines);
+        // the buffer is only for line-splitting callbacks.
         stdout += text;
-        const lines = text.split('\n');
+        stdoutBuffer += text;
+        const lines = stdoutBuffer.split('\n');
+        stdoutBuffer = lines.pop() ?? ''; // keep the incomplete tail
         for (const line of lines) {
           if (line.trim() && opts.onStdoutLine) opts.onStdoutLine(line);
         }
@@ -140,6 +149,10 @@ export class DshClient {
       });
 
       child.on('close', (code) => {
+        // Flush the incomplete tail to line callbacks (stdout already holds it).
+        if (stdoutBuffer.trim() && opts.onStdoutLine) {
+          opts.onStdoutLine(stdoutBuffer);
+        }
         finish(code);
       });
 
