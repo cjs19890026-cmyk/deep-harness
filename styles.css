@@ -68,24 +68,39 @@
   margin-left: auto;
 }
 
+/* ── Model / Thinking selectors (below the input) ───────── */
+.dsh-input-selectors {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 12px 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
 .dsh-select {
   background: var(--background-secondary);
-  color: var(--text-normal);
+  color: #FF8C00;
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-s);
-  font-size: var(--font-ui-smaller);
-  padding: 2px 6px;
-  max-width: 150px;
+  font-size: var(--font-ui-small);
+  font-family: 'Songti SC', 'SimSun', 'STSong', serif;
+  padding: 3px 8px;
+  max-width: 170px;
   cursor: pointer;
 }
 
+.dsh-select option {
+  color: #FF8C00;
+  font-family: 'Songti SC', 'SimSun', 'STSong', serif;
+}
+
 .dsh-select:hover {
-  border-color: var(--interactive-accent);
+  border-color: #FF8C00;
 }
 
 .dsh-select:focus {
   outline: none;
-  border-color: var(--interactive-accent);
+  border-color: #FF8C00;
 }
 
 .dsh-icon-btn {

@@ -103,29 +103,6 @@ export class ChatView extends ItemView {
     title.createEl('h4', { text: 'Harness Chat' });
     title.createSpan({ cls: 'dsh-header-sub', text: 'DeepSeek Harness' });
 
-    // Model + reasoning selector
-    const selectors = header.createDiv({ cls: 'dsh-header-selectors' });
-    const modelSel = selectors.createEl('select', { cls: 'dsh-select' });
-    modelSel.setAttribute('aria-label', 'Model');
-    for (const m of MODEL_OPTIONS) {
-      modelSel.createEl('option', { text: m.label, value: m.id });
-    }
-    modelSel.value = this.plugin.settings.model;
-    modelSel.addEventListener('change', () => {
-      this.plugin.settings.model = modelSel.value;
-      void this.plugin.saveSettings();
-    });
-    const thinkSel = selectors.createEl('select', { cls: 'dsh-select' });
-    thinkSel.setAttribute('aria-label', 'Thinking');
-    for (const r of REASONING_OPTIONS) {
-      thinkSel.createEl('option', { text: r.label, value: r.id });
-    }
-    thinkSel.value = this.plugin.settings.reasoningEffort;
-    thinkSel.addEventListener('change', () => {
-      this.plugin.settings.reasoningEffort = thinkSel.value;
-      void this.plugin.saveSettings();
-    });
-
     const clearBtn = header.createEl('button', { cls: 'dsh-icon-btn' });
     setIcon(clearBtn, 'trash-2');
     clearBtn.setAttribute('aria-label', t('chat.clear'));
@@ -160,6 +137,29 @@ export class ChatView extends ItemView {
         void this.sendMessage();
       }
     };
+
+    // Model + reasoning selector (below the input area)
+    const selectors = container.createDiv({ cls: 'dsh-input-selectors' });
+    const modelSel = selectors.createEl('select', { cls: 'dsh-select dsh-select-model' });
+    modelSel.setAttribute('aria-label', 'Model');
+    for (const m of MODEL_OPTIONS) {
+      modelSel.createEl('option', { text: m.label, value: m.id });
+    }
+    modelSel.value = this.plugin.settings.model;
+    modelSel.addEventListener('change', () => {
+      this.plugin.settings.model = modelSel.value;
+      void this.plugin.saveSettings();
+    });
+    const thinkSel = selectors.createEl('select', { cls: 'dsh-select dsh-select-think' });
+    thinkSel.setAttribute('aria-label', 'Thinking');
+    for (const r of REASONING_OPTIONS) {
+      thinkSel.createEl('option', { text: r.label, value: r.id });
+    }
+    thinkSel.value = this.plugin.settings.reasoningEffort;
+    thinkSel.addEventListener('change', () => {
+      this.plugin.settings.reasoningEffort = thinkSel.value;
+      void this.plugin.saveSettings();
+    });
   }
 
   onClose(): Promise<void> {
