@@ -1,0 +1,25 @@
+{
+  "name": "dsh-obsidian",
+  "version": "0.1.0",
+  "description": "Obsidian plugin that calls DeepSeek Harness (dsh --profile headless) directly from the vault.",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "deepseek",
+    "harness",
+    "ai",
+    "agent"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.24.0",
+    "obsidian": "latest",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "dsh-obsidian",
+  "name": "Harness Chat",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Call DeepSeek Harness directly from Obsidian: chat with a full agent (bash, web search, file tools) that works on your vault.",
+  "author": "dsh-obsidian",
+  "isDesktopOnly": true
+}
