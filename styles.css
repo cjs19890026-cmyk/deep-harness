@@ -61,46 +61,58 @@
   color: var(--text-muted);
 }
 
-.dsh-header-selectors {
-  display: flex;
-  gap: 6px;
+/* ── Context usage ring ────────────────────────────────── */
+.dsh-meter {
+  display: inline-flex;
   align-items: center;
-  margin-left: auto;
+  margin-left: 6px;
+  cursor: help;
+  flex-shrink: 0;
+  position: relative;
 }
 
-/* ── Model / Thinking selectors (below the input) ───────── */
-.dsh-input-selectors {
+.dsh-meter svg {
+  display: block;
+}
+
+/* Hover tip: percentage + detail, only visible on hover/focus */
+.dsh-meter-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  min-width: 180px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  padding: 6px 9px;
+  text-align: left;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.dsh-meter-tip-pct {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.dsh-meter-tip-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.dsh-meter-tip.hidden {
+  display: none;
+}
+
+.dsh-modal-buttons {
   display: flex;
   gap: 8px;
-  align-items: center;
-  padding: 6px 12px 8px;
-  border-top: 1px solid var(--background-modifier-border);
-}
-
-.dsh-select {
-  background: var(--background-secondary);
-  color: #FF8C00;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-s);
-  font-size: var(--font-ui-small);
-  font-family: 'Songti SC', 'SimSun', 'STSong', serif;
-  padding: 3px 8px;
-  max-width: 170px;
-  cursor: pointer;
-}
-
-.dsh-select option {
-  color: #FF8C00;
-  font-family: 'Songti SC', 'SimSun', 'STSong', serif;
-}
-
-.dsh-select:hover {
-  border-color: #FF8C00;
-}
-
-.dsh-select:focus {
-  outline: none;
-  border-color: #FF8C00;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 
 .dsh-icon-btn {
@@ -242,44 +254,127 @@
   50% { opacity: 0.55; }
 }
 
-/* ── Input ──────────────────────────────────────────────── */
-.dsh-input-area {
+/* ── Composer card (input + toolbar, web-UI style) ──────── */
+.dsh-composer {
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  padding: 10px 12px;
-  border-top: 1px solid var(--background-modifier-border);
-}
-
-.dsh-input {
-  flex: 1;
-  resize: none;
-  min-height: 38px;
-  max-height: 200px;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 8px 10px;
+  padding: 8px 8px 8px 10px;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-m);
-  padding: 8px 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dsh-composer:focus-within {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+}
+
+.dsh-input {
+  width: 100%;
+  resize: none;
+  min-height: 57px;
+  max-height: 200px;
+  background: transparent;
+  border: none;
+  padding: 2px 0;
   font-family: var(--font-interface);
   font-size: var(--font-ui-small);
   color: var(--text-normal);
+  line-height: 1.5;
 }
 
 .dsh-input:focus {
-  border-color: var(--interactive-accent);
   outline: none;
 }
 
+.dsh-composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 5px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Trigger buttons: capsule shape, blends with the background by default,
+   brightens one step on hover to separate from the composer. */
+.dsh-trigger {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 2px 9px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-normal);
+  transition: background-color 0.15s ease;
+}
+
+.dsh-trigger:hover {
+  background: var(--background-modifier-hover);
+}
+
+.dsh-trigger-model-name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dsh-trigger-effort {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.dsh-trigger-security {
+  align-items: center;
+  gap: 5px;
+}
+
+.dsh-trigger-security-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+.dsh-trigger-security-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.dsh-trigger-security-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dsh-trigger-danger .dsh-trigger-security-icon,
+.dsh-trigger-danger .dsh-trigger-security-label {
+  color: var(--text-error);
+}
+
+/* Send button (capsule) */
 .dsh-send-btn {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: var(--radius-m);
+  margin-left: auto;
+  height: 26px;
+  padding: 0 14px;
+  border-radius: 999px;
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   border: none;
   cursor: pointer;
-  font-size: var(--font-ui-small);
+  font-size: 12px;
+  font-weight: 500;
   flex-shrink: 0;
+  transition: filter 0.15s ease, background-color 0.15s ease;
 }
 
 .dsh-send-btn:hover {
@@ -287,8 +382,13 @@
 }
 
 .dsh-send-btn.is-stop {
-  background: var(--background-modifier-error);
-  color: var(--text-error);
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  border-radius: 999px;
+}
+
+.dsh-send-btn.is-stop:hover {
+  filter: none;
 }
 
 /* ── Settings page ──────────────────────────────────────── */

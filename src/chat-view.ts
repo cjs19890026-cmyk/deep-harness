@@ -1,11 +1,15 @@
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App, Setting } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App, Setting, Menu } from 'obsidian';
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
-import { MODEL_OPTIONS, REASONING_OPTIONS } from './settings';
+import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS } from './settings';
+import { ContextMeter, estimateTokens } from './context-meter';
 import { t } from './i18n';
 
 export const VIEW_TYPE_CHAT = 'dsh-obsidian-chat';
+
+/** Rough fixed token cost of the vault persona system prompt (built-in rules). */
+const PERSONA_FIXED_TOKENS = 250;
 
 interface MemoryTurn {
   user: string;
@@ -13,8 +17,7 @@ interface MemoryTurn {
 }
 
 /** Simplified "save as note" modal (pattern borrowed from claudian). */
-export class NoteCreatorModal extends Modal {
-  private title = '';
+export class NoteCreatorModal extends Modal {  private title = '';
   private content: string;
 
   constructor(app: App, content: string, private folder: string) {
@@ -53,6 +56,39 @@ export class NoteCreatorModal extends Modal {
   }
 }
 
+/** Confirmation dialog when switching to danger-full-access. */
+export class SecurityConfirmModal extends Modal {
+  constructor(
+    app: App,
+    private onConfirm: () => void,
+    private onCancel: () => void,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h3', { text: t('security.confirmTitle') });
+    contentEl.createEl('p', { text: t('security.confirmDesc') });
+    const btns = contentEl.createDiv({ cls: 'dsh-modal-buttons' });
+    const ok = btns.createEl('button', { cls: 'mod-cta', text: t('security.confirmOk') });
+    ok.onclick = () => {
+      this.onConfirm();
+      this.close();
+    };
+    const cancel = btns.createEl('button', { text: t('security.cancel') });
+    cancel.onclick = () => {
+      this.onCancel();
+      this.close();
+    };
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
 export class ChatView extends ItemView {
   plugin: DshPlugin;
   private client: DshClient;
@@ -61,12 +97,15 @@ export class ChatView extends ItemView {
   private messagesContainer: HTMLElement;
   private inputEl: HTMLTextAreaElement;
   private sendButton: HTMLButtonElement;
+  private modelTrigger: HTMLButtonElement;
+  private securityTrigger: HTMLButtonElement;
   private statusEl: HTMLElement | null = null;
   private statusTimer: number | null = null;
   private statusStartedAt = 0;
   private abortController: AbortController | null = null;
   private running = false;
   private memory: MemoryTurn[] = [];
+  private contextMeter: ContextMeter | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: DshPlugin) {
     super(leaf);
@@ -112,9 +151,10 @@ export class ChatView extends ItemView {
     this.messagesContainer = container.createDiv({ cls: 'dsh-messages' });
     this.showWelcome();
 
-    // Input
-    const inputArea = container.createDiv({ cls: 'dsh-input-area' });
-    this.inputEl = inputArea.createEl('textarea', {
+    // Composer card: textarea + toolbar (model/effort/security/meter/send)
+    const composer = container.createDiv({ cls: 'dsh-composer' });
+
+    this.inputEl = composer.createEl('textarea', {
       cls: 'dsh-input',
       attr: { placeholder: t('chat.placeholder'), rows: '2' },
     });
@@ -129,7 +169,26 @@ export class ChatView extends ItemView {
       this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 200) + 'px';
     });
 
-    this.sendButton = inputArea.createEl('button', { cls: 'dsh-send-btn', text: t('chat.send') });
+    const toolbar = composer.createDiv({ cls: 'dsh-composer-toolbar' });
+
+    // Model + reasoning trigger button (single line: name · effort)
+    this.modelTrigger = toolbar.createEl('button', { cls: 'dsh-trigger dsh-trigger-model' });
+    this.modelTrigger.createSpan({ cls: 'dsh-trigger-model-name' });
+    this.modelTrigger.createSpan({ cls: 'dsh-trigger-effort' });
+    this.modelTrigger.onclick = (e) => this.showModelMenu(e);
+
+    // Security trigger button
+    this.securityTrigger = toolbar.createEl('button', { cls: 'dsh-trigger dsh-trigger-security' });
+    this.securityTrigger.createSpan({ cls: 'dsh-trigger-security-icon' });
+    setIcon(this.securityTrigger.querySelector('.dsh-trigger-security-icon') as HTMLElement, 'shield');
+    this.securityTrigger.createSpan({ cls: 'dsh-trigger-security-label' });
+    this.securityTrigger.onclick = (e) => this.showSecurityMenu(e);
+
+    // Context usage ring
+    this.contextMeter = new ContextMeter(toolbar);
+
+    // Send button (capsule)
+    this.sendButton = toolbar.createEl('button', { cls: 'dsh-send-btn', text: t('chat.send') });
     this.sendButton.onclick = () => {
       if (this.running) {
         this.stopRun();
@@ -138,28 +197,86 @@ export class ChatView extends ItemView {
       }
     };
 
-    // Model + reasoning selector (below the input area)
-    const selectors = container.createDiv({ cls: 'dsh-input-selectors' });
-    const modelSel = selectors.createEl('select', { cls: 'dsh-select dsh-select-model' });
-    modelSel.setAttribute('aria-label', 'Model');
+    this.updateTriggerLabels();
+  }
+
+  /** Refresh trigger button labels from settings. */
+  private updateTriggerLabels(): void {
+    if (!this.modelTrigger || !this.securityTrigger) return;
+    const m = MODEL_OPTIONS.find((x) => x.id === this.plugin.settings.model);
+    const r = REASONING_OPTIONS.find((x) => x.id === this.plugin.settings.reasoningEffort);
+    const nameEl = this.modelTrigger.querySelector('.dsh-trigger-model-name') as HTMLElement;
+    const effortEl = this.modelTrigger.querySelector('.dsh-trigger-effort') as HTMLElement;
+    if (nameEl) nameEl.textContent = m ? m.label : this.plugin.settings.model;
+    if (effortEl) effortEl.textContent = `· ${r ? r.label : this.plugin.settings.reasoningEffort}`;
+    const secLabel = this.securityTrigger.querySelector('.dsh-trigger-security-label') as HTMLElement;
+    const p = PERMISSION_OPTIONS.find((x) => x.id === this.plugin.settings.permissionMode);
+    if (secLabel) secLabel.textContent = p ? p.label : this.plugin.settings.permissionMode;
+    this.securityTrigger.toggleClass(
+      'dsh-trigger-danger',
+      this.plugin.settings.permissionMode === 'danger-full-access',
+    );
+  }
+
+  /** Model + reasoning effort menu (two sections in one popup). */
+  private showModelMenu(evt: MouseEvent): void {
+    const menu = new Menu();
     for (const m of MODEL_OPTIONS) {
-      modelSel.createEl('option', { text: m.label, value: m.id });
+      menu.addItem((item) => item
+        .setTitle(m.label)
+        .setChecked(m.id === this.plugin.settings.model)
+        .onClick(() => {
+          this.plugin.settings.model = m.id;
+          void this.plugin.saveSettings();
+          this.updateTriggerLabels();
+        }));
     }
-    modelSel.value = this.plugin.settings.model;
-    modelSel.addEventListener('change', () => {
-      this.plugin.settings.model = modelSel.value;
-      void this.plugin.saveSettings();
-    });
-    const thinkSel = selectors.createEl('select', { cls: 'dsh-select dsh-select-think' });
-    thinkSel.setAttribute('aria-label', 'Thinking');
+    menu.addSeparator();
     for (const r of REASONING_OPTIONS) {
-      thinkSel.createEl('option', { text: r.label, value: r.id });
+      menu.addItem((item) => item
+        .setTitle(r.label)
+        .setChecked(r.id === this.plugin.settings.reasoningEffort)
+        .onClick(() => {
+          this.plugin.settings.reasoningEffort = r.id;
+          void this.plugin.saveSettings();
+          this.updateTriggerLabels();
+        }));
     }
-    thinkSel.value = this.plugin.settings.reasoningEffort;
-    thinkSel.addEventListener('change', () => {
-      this.plugin.settings.reasoningEffort = thinkSel.value;
+    menu.showAtMouseEvent(evt);
+  }
+
+  /** Security / sandbox mode menu. */
+  private showSecurityMenu(evt: MouseEvent): void {
+    const menu = new Menu();
+    for (const p of PERMISSION_OPTIONS) {
+      menu.addItem((item) => item
+        .setTitle(p.label)
+        .setChecked(p.id === this.plugin.settings.permissionMode)
+        .onClick(() => this.applyPermissionMode(p.id)));
+    }
+    menu.showAtMouseEvent(evt);
+  }
+
+  private applyPermissionMode(mode: string): void {
+    const switchingToFull = mode === 'danger-full-access'
+      && this.plugin.settings.permissionMode !== 'danger-full-access';
+    if (switchingToFull) {
+      new SecurityConfirmModal(
+        this.app,
+        () => {
+          this.plugin.settings.permissionMode = mode;
+          void this.plugin.saveSettings();
+          this.updateTriggerLabels();
+        },
+        () => {
+          this.updateTriggerLabels();
+        },
+      ).open();
+    } else {
+      this.plugin.settings.permissionMode = mode;
       void this.plugin.saveSettings();
-    });
+      this.updateTriggerLabels();
+    }
   }
 
   onClose(): Promise<void> {
@@ -191,6 +308,7 @@ export class ChatView extends ItemView {
 
   private clearChat(): void {
     this.memory = [];
+    this.contextMeter?.reset();
     this.messagesContainer.empty();
     this.showWelcome();
     new Notice(t('chat.cleared'));
@@ -231,6 +349,11 @@ export class ChatView extends ItemView {
     const vaultRoot = this.plugin.getVaultRoot();
     const memorySummary = this.buildMemorySummary();
     const task = this.runner.buildTask(message, memorySummary);
+    // Context meter: account for this turn's prompt (system persona +
+    // assembled task) right when it is sent.
+    if (this.contextMeter) {
+      this.contextMeter.addTokens(PERSONA_FIXED_TOKENS + estimateTokens(task));
+    }
     const patchPath = await this.runner.ensureVaultPatch(vaultRoot);
     // Isolated DSH_HOME with the selected model + reasoning effort;
     // falls back to the user home when it cannot be prepared.
@@ -253,6 +376,7 @@ export class ChatView extends ItemView {
         cwd: this.runner.workdir(vaultRoot),
         dshHome,
         toolsMode: this.plugin.settings.toolExecutionMode,
+        permissionMode: this.plugin.settings.permissionMode,
         patchPath: patchPath ?? undefined,
         timeoutMs: this.plugin.settings.timeoutSec * 1000,
         signal: this.abortController.signal,
@@ -262,8 +386,9 @@ export class ChatView extends ItemView {
       fullAnswer = result.stdout.trim();
 
       if (result.killed) {
+        // Stopped by user: keep it subtle — a small status note only,
+        // no full-width red message in the transcript.
         statusEl.setText(`⏹ ${t('chat.cancelled')}`);
-        this.renderMessage('assistant', `⏹ ${t('chat.cancelled')}`, true);
       } else if (result.exitCode !== 0 || !fullAnswer) {
         const errMsg = this.extractError(result.stderr);
         statusEl.setText(`✗ ${t('chat.failed', { message: errMsg })}`);

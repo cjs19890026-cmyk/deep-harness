@@ -18,6 +18,8 @@ export interface DshSettings {
   model: string;
   /** Reasoning effort: off | high | max. */
   reasoningEffort: string;
+  /** DSH sandbox mode: read-only | workspace-write | danger-full-access. */
+  permissionMode: string;
 }
 
 export const DEFAULT_SETTINGS: DshSettings = {
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: DshSettings = {
   toolExecutionMode: '',
   model: 'deepseek-v4-flash',
   reasoningEffort: 'high',
+  permissionMode: 'workspace-write',
 };
 
 export const MODEL_OPTIONS = [
@@ -43,6 +46,12 @@ export const REASONING_OPTIONS = [
   { id: 'off', label: 'Off' },
   { id: 'high', label: 'High' },
   { id: 'max', label: 'Max' },
+] as const;
+
+export const PERMISSION_OPTIONS = [
+  { id: 'read-only', label: '只读' },
+  { id: 'workspace-write', label: '工作区写入' },
+  { id: 'danger-full-access', label: '完全访问' },
 ] as const;
 
 export class DshSettingTab extends PluginSettingTab {
@@ -186,6 +195,18 @@ export class DshSettingTab extends PluginSettingTab {
         for (const r of REASONING_OPTIONS) dd.addOption(r.id, r.label);
         dd.setValue(this.plugin.settings.reasoningEffort).onChange(async (value) => {
           this.plugin.settings.reasoningEffort = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    // Permission / sandbox mode (also switchable from the chat header)
+    new Setting(containerEl)
+      .setName('安全模式 (Security)')
+      .setDesc('只读 = 拒绝所有文件修改;工作区写入 = 文件工具限 vault 内;完全访问 = 等同终端权限(谨慎)。')
+      .addDropdown((dd) => {
+        for (const p of PERMISSION_OPTIONS) dd.addOption(p.id, p.label);
+        dd.setValue(this.plugin.settings.permissionMode).onChange(async (value) => {
+          this.plugin.settings.permissionMode = value;
           await this.plugin.saveSettings();
         });
       });

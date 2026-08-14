@@ -25,6 +25,8 @@ export interface DshRunOptions {
   dshHome?: string;
   /** Tool execution backend for the harness: '' (native default) | 'native' | 'code' | 'both'. */
   toolsMode?: string;
+  /** DSH sandbox mode: read-only | workspace-write | danger-full-access. */
+  permissionMode?: string;
   /** Path to a generated `--patch` overlay, if any. */
   patchPath?: string;
   /** Kill the process after this many ms. 0 = no timeout. */
@@ -81,6 +83,10 @@ export class DshClient {
       // only set it when the user explicitly chose one. It is NOT a file
       // sandbox knob — file tools scope to the session cwd (= the vault).
       if (opts.toolsMode) env.DSH_TOOLS_MODE = opts.toolsMode;
+      // DSH_PERMISSION_MODE selects the sandbox mode (read-only /
+      // workspace-write / danger-full-access), consumed by dsh-sandbox-policy
+      // and dsh-permission-presets in the base bundle.
+      if (opts.permissionMode) env.DSH_PERMISSION_MODE = opts.permissionMode;
       // Make sure the agent's own bash tool can still find node/npm.
       if (opts.nodeBin) {
         const nodeDir = opts.nodeBin.substring(0, opts.nodeBin.lastIndexOf('/'));

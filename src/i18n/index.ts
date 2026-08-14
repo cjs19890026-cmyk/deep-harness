@@ -53,6 +53,10 @@ const translations = {
     'settings.check.missing': '✗ dsh not found. Install: npm i -g @deepseek-ai/dsh',
     'settings.check.help': 'Run this check after installing dsh.',
     'settings.footer': 'Powered by DeepSeek Harness',
+    'security.confirmTitle': 'Switch to Full Access?',
+    'security.confirmDesc': 'Full Access equals running dsh in your terminal: the agent can read/write files outside the vault and destructive actions run without confirmation. Continue?',
+    'security.confirmOk': 'Switch',
+    'security.cancel': 'Cancel',
   },
   zh: {
     'chat.title': 'Harness 聊天',
@@ -101,6 +105,10 @@ const translations = {
     'settings.check.missing': '✗ 未找到 dsh。安装:npm i -g @deepseek-ai/dsh',
     'settings.check.help': '安装 dsh 后运行此检查。',
     'settings.footer': '由 DeepSeek Harness 驱动',
+    'security.confirmTitle': '切换到「完全访问」模式?',
+    'security.confirmDesc': '完全访问等同你在终端运行 dsh 的权限:agent 可读写 vault 外的文件,破坏性操作不再弹确认。确定继续?',
+    'security.confirmOk': '切换',
+    'security.cancel': '取消',
   },
 } as const;
 
