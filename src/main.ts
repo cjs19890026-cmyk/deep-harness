@@ -1,6 +1,6 @@
 import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { DshSettings, DshSettingTab, DEFAULT_SETTINGS, obsidianLocale } from './settings';
-import { ChatView, VIEW_TYPE_CHAT } from './chat-view';
+import { ChatView, VIEW_TYPE_CHAT, SecurityConfirmModal } from './chat-view';
 import { DshRunner } from './dsh-runner';
 import { HistoryStore } from './history';
 import { setLocale, resolveLocale } from './i18n';
@@ -10,6 +10,7 @@ export default class DshPlugin extends Plugin {
   private runner: DshRunner;
   private vaultPatchInvalidated = false;
   history: HistoryStore | null = null;
+  private settingsChangeListeners = new Set<() => void>();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -88,6 +89,34 @@ export default class DshPlugin extends Plugin {
     this.vaultPatchInvalidated = true;
   }
 
+  /**
+   * Set the sandbox mode, confirming first when switching INTO
+   * danger-full-access. This is the single entry point shared by the settings
+   * tab and the chat header, so the "confirm before full access" rule cannot
+   * be bypassed from one UI surface. Returns true when the mode was applied,
+   * false when the user cancelled.
+   */
+  async setPermissionMode(mode: string): Promise<boolean> {
+    const switchingToFull = mode === 'danger-full-access'
+      && this.settings.permissionMode !== 'danger-full-access';
+    if (!switchingToFull) {
+      this.settings.permissionMode = mode;
+      await this.saveSettings();
+      return true;
+    }
+    return new Promise<boolean>((resolve) => {
+      new SecurityConfirmModal(
+        this.app,
+        () => {
+          this.settings.permissionMode = mode;
+          void this.saveSettings();
+          resolve(true);
+        },
+        () => resolve(false),
+      ).open();
+    });
+  }
+
   private async askWithActiveNote(): Promise<void> {
     const file = this.app.workspace.getActiveFile();
     if (!file) return;
@@ -136,5 +165,20 @@ export default class DshPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+    this.notifySettingsChange();
+  }
+
+  /**
+   * Subscribe to settings saves (returns an unsubscribe fn). Views that render
+   * settings-derived labels (model / effort / permission triggers) use this to
+   * refresh when a value changes from the settings tab.
+   */
+  onSettingsChange(listener: () => void): () => void {
+    this.settingsChangeListeners.add(listener);
+    return () => this.settingsChangeListeners.delete(listener);
+  }
+
+  private notifySettingsChange(): void {
+    for (const listener of this.settingsChangeListeners) listener();
   }
 }

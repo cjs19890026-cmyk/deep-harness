@@ -145,6 +145,7 @@ export class ChatView extends ItemView {
   private running = false;
   private memory: MemoryTurn[] = [];
   private contextMeter: ContextMeter | null = null;
+  private settingsUnsub: (() => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: DshPlugin) {
     super(leaf);
@@ -268,6 +269,9 @@ export class ChatView extends ItemView {
     };
 
     this.updateTriggerLabels();
+    // Reflect settings-tab changes (model / effort / permission) into the
+    // trigger labels, which otherwise only refresh from our own menus.
+    this.settingsUnsub = this.plugin.onSettingsChange(() => this.updateTriggerLabels());
   }
 
   /** Refresh trigger button labels from settings. */
@@ -322,31 +326,15 @@ export class ChatView extends ItemView {
       menu.addItem((item) => item
         .setTitle(p.label)
         .setChecked(p.id === this.plugin.settings.permissionMode)
-        .onClick(() => this.applyPermissionMode(p.id)));
+        .onClick(() => { void this.applyPermissionMode(p.id); }));
     }
     menu.showAtMouseEvent(evt);
   }
 
-  private applyPermissionMode(mode: string): void {
-    const switchingToFull = mode === 'danger-full-access'
-      && this.plugin.settings.permissionMode !== 'danger-full-access';
-    if (switchingToFull) {
-      new SecurityConfirmModal(
-        this.app,
-        () => {
-          this.plugin.settings.permissionMode = mode;
-          void this.plugin.saveSettings();
-          this.updateTriggerLabels();
-        },
-        () => {
-          this.updateTriggerLabels();
-        },
-      ).open();
-    } else {
-      this.plugin.settings.permissionMode = mode;
-      void this.plugin.saveSettings();
-      this.updateTriggerLabels();
-    }
+  /** Delegate to the plugin's single confirmation path, then refresh labels. */
+  private async applyPermissionMode(mode: string): Promise<void> {
+    await this.plugin.setPermissionMode(mode);
+    this.updateTriggerLabels();
   }
 
   onClose(): Promise<void> {
@@ -355,6 +343,8 @@ export class ChatView extends ItemView {
     this.mention = null;
     this.client.dispose();
     if (this.statusTimer !== null) window.clearInterval(this.statusTimer);
+    this.settingsUnsub?.();
+    this.settingsUnsub = null;
     return Promise.resolve();
   }
 

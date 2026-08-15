@@ -215,8 +215,10 @@ export class DshSettingTab extends PluginSettingTab {
       .addDropdown((dd) => {
         for (const p of PERMISSION_OPTIONS) dd.addOption(p.id, p.label);
         dd.setValue(this.plugin.settings.permissionMode).onChange(async (value) => {
-          this.plugin.settings.permissionMode = value;
-          await this.plugin.saveSettings();
+          // Shared guard: switching into full access asks for confirmation
+          // first; on cancel, revert the dropdown to the still-active mode.
+          await this.plugin.setPermissionMode(value);
+          dd.setValue(this.plugin.settings.permissionMode);
         });
       });
 

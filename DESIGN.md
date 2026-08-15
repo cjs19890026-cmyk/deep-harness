@@ -121,7 +121,7 @@ src/
            │    dsh --profile headless --patch <gen>/vault.yml "<任务>"
            │    cwd      = vault 根目录
            │    DSH_HOME = ~/.dsh(或用户指定)
-           │    DSH_TOOLS_MODE = workspace-write(默认)
+           │    DSH_PERMISSION_MODE = workspace-write(默认)
            ▼
 ┌────────────────────────────────────────────────────────────┐
 │ DeepSeek Harness 运行时(headless bundle)                   │
@@ -336,19 +336,22 @@ class DshClient {
 
 ## 6. 安全模型
 
-> **实测结论(重要)**:headless bundle 默认**没有挂载文件沙箱策略插件**。验证中 agent 成功通过 bash 写了 `/tmp` 目录 —— 文件工具以 session cwd(= vault)为工作区,**但 bash 工具拥有与用户终端相同的本机权限**。插件不依赖 DSH 沙箱兜底,安全主要靠 persona 规则 + 用户知情。
+> **实测结论(基于本机 `@deepseek-ai/dsh@0.1.0-rc.6` 源码核查,取代旧版「headless 无沙箱」结论)**:headless profile 的 base bundle **确实挂载了文件沙箱**,`DSH_PERMISSION_MODE` 被 `dsh-sandbox-policy` 消费为「文件效果策略」。bash 与文件工具在 `read-only` / `workspace-write` 下都受到**操作系统级**约束,`danger-full-access` 才关闭约束。插件透传 `DSH_PERMISSION_MODE` 的做法正确。
 
 | 层 | 机制 | 状态 |
 |---|---|---|
-| 文件工具工作区 | session cwd = vault 根,读写在 vault 内进行 | ✅ 已验证 |
-| bash 工具 | 用户级权限,可读写任意位置 | ⚠️ 无沙箱,依赖 persona 约束 |
-| 破坏性操作 | persona 规则要求 agent 先说明再执行(4.3);Phase 2 可做文件修改 diff 预览 | 规则层 |
+| 沙箱策略 | `dsh-sandbox-policy` 读 `DSH_PERMISSION_MODE`(默认 `workspace-write`),为每次调用 resolve 出 `mode` + `workspaceRoot`(= session cwd = vault 根) | ✅ 源码已证 |
+| bash 工具 | `dsh-bash-sandbox` 用 `ctx.sandbox`(LocalSandboxProvider)包裹 `bash -c`:macOS 走 Seatbelt(`sandbox-exec`)、Linux 走 bwrap/Landlock、Windows 走 ACL 受限令牌;`workspace-write` 只允许写 `workspaceRoot` + `/tmp` + 用户临时目录;无可用后端时 fail-closed(`SANDBOX_UNAVAILABLE`) | ✅ 源码已证 |
+| 文件工具 | `dsh-fs-sandbox` 进程内栅栏:`read-only` 拒绝一切变更;`workspace-write` 只允许 canonical 后落在 `writableRoots` 内;与 Seatbelt 共用同一 `writableRoots` 源,bash 与 fs 不会漂移 | ✅ 源码已证 |
+| 完全访问 | `danger-full-access` → bash 不包裹、fs 不设栅栏、approval 策略 = `never`;等同终端权限 | ⚠️ 需谨慎 |
+| 越权升级 | `sandbox_permissions` 严格更宽阶梯(read-only→workspace-write→danger-full-access),走 approval 通道;headless 无 answerer 时 fail-closed | ✅ 源码已证 |
 | 凭据 | 插件不收集任何 API Key;全部走 DSH 既有凭据服务(`~/.dsh`) | ✅ |
 | 进程 | 运行超时强制终止;插件卸载时 kill 全部子进程 | ✅ |
-| 工具执行模式 | `DSH_TOOLS_MODE` 只接受 `native \| code \| both`(工具后端),**不是**文件沙箱开关;插件默认不注入 | ✅ 已修正 |
-| 会话数据 | 只在本机;不上传任何 vault 内容到除 DSH 配置的模型服务以外的端点 | ✅ |
+| 工具执行模式 | `DSH_TOOLS_MODE` 只接受 `native \| code \| both`(工具后端),**不是**文件沙箱开关;文件沙箱由 `DSH_PERMISSION_MODE` 控制 | ✅ 已修正 |
 
-**加固建议(Phase 2/3)**:可选挂载 `dsh-sandbox-policy` 插件到生成的 profile,把文件写操作限定在 vault 内;或在 persona 中按「严格模式」注入更强的边界规则。
+**注意 1**:`workspace-write` 的写边界 = session cwd(= 插件 `workdir` 解析后的路径)。若 `workdir` 被配置到 vault 之外(如 `..` 或绝对路径),沙箱边界也随之移到那里,所以 `workdir` 必须校验为 vault 内(见审核清单)。
+
+**注意 2(macOS)**:darwin 链只有 `seatbelt` 一个候选且**不探测**直接选用。若宿主 `sandbox-exec` 无法应用 profile(新版 macOS 或受限制环境),bash 会 **fail-closed**(`SANDBOX_UNAVAILABLE`)而非无沙箱运行——即「安全但不可用」。上机前需在目标机器的干净终端里验证 Seatbelt 可用(见测试建议 T0)。
 
 ---
 
