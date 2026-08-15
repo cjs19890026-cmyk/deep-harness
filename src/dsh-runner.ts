@@ -131,6 +131,16 @@ module.exports = {
 };
 `;
 
+/** Whether a resolved dsh entry is a JS file node can run directly. */
+function isNodeScript(p: string): boolean {
+  if (/\.(?:m?js|cjs)$/i.test(p)) return true;
+  try {
+    return /^#!.*\bnode\b/.test(fs.readFileSync(p, 'utf8').slice(0, 128));
+  } catch {
+    return false;
+  }
+}
+
 export class DshRunner {
   constructor(private settings: DshSettings) {}
 
@@ -164,7 +174,11 @@ export class DshRunner {
     }
     try {
       const script = this.resolveDshScript(bin);
-      const { stdout } = await execFileAsync(nodeBin ?? bin, (script ? [script] : []).concat(['--version']), {
+      // Prefer `node <script> --version` (bypasses the shebang under Electron's
+      // restricted PATH); when the bin isn't node-runnable, invoke it directly.
+      const cmd = script && nodeBin ? nodeBin : bin;
+      const args = script && nodeBin ? [script, '--version'] : ['--version'];
+      const { stdout } = await execFileAsync(cmd, args, {
         timeout: 10000,
         env: { ...process.env as Record<string, string>, DSH_HOME: this.dshHome() },
       });
@@ -218,11 +232,14 @@ export class DshRunner {
    * Resolve the real entry script of the dsh CLI.
    * npm's global bin entries are symlinks (dsh -> ../lib/node_modules/
    * @deepseek-ai/dsh/lib/bin.js); we need the real path to run it with node.
+   * Returns null when the resolved file is not node-runnable (a shell wrapper
+   * or native binary), so callers can surface a clear diagnostic instead of
+   * failing later with a node syntax error.
    */
   resolveDshScript(dshBin: string): string | null {
     try {
       const real = fs.realpathSync(dshBin);
-      return real;
+      return isNodeScript(real) ? real : null;
     } catch {
       return null;
     }

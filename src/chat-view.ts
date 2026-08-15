@@ -42,6 +42,31 @@ export function parseHeadlessOutput(stdout: string): string {
   return answerParts.join('\n').trim();
 }
 
+/** Map a dsh error CODE to a user-friendly message; null = unknown code. */
+function errorHint(code: string): string | null {
+  switch (code) {
+    case 'INVALID_CREDENTIAL':
+    case 'MISSING_CREDENTIAL':
+    case 'NO_ADAPTER':
+      return t('chat.noCredential');
+    case 'QUOTA':
+      return t('chat.errQuota');
+    case 'RATE_LIMIT':
+      return t('chat.errRateLimit');
+    case 'TIMEOUT':
+      return t('chat.errTimeout');
+    case 'TRANSPORT':
+    case 'SERVER':
+      return t('chat.errNetwork');
+    case 'CONTEXT_WINDOW_EXCEEDED':
+      return t('chat.errContextWindow');
+    case 'SANDBOX_UNAVAILABLE':
+      return t('chat.errSandbox');
+    default:
+      return null;
+  }
+}
+
 interface MemoryTurn {
   user: string;
   assistant: string;
@@ -387,11 +412,15 @@ export class ChatView extends ItemView {
     // Detect node + dsh's real script so we spawn `node bin.js` directly
     // (bypasses the shebang, which fails under Electron's restricted PATH).
     const nodeBin = await this.runner.detectNode();
+    if (!nodeBin) {
+      this.renderMessage('assistant', `> ⚠️ ${t('chat.noNode')}`, true);
+      new Notice(t('chat.noNode'), 6000);
+      return;
+    }
     const dshScript = this.runner.resolveDshScript(bin);
-    if (!nodeBin || !dshScript) {
-      const msg = `> ⚠️ 未找到 Node.js 或 dsh 脚本路径(node: ${nodeBin ?? '?'} / script: ${dshScript ?? '?'}),请在插件设置中填写 Node.js 路径。`;
-      this.renderMessage('assistant', msg, true);
-      new Notice('未找到 Node.js 或 dsh 脚本路径', 6000);
+    if (!dshScript) {
+      this.renderMessage('assistant', `> ⚠️ ${t('chat.dshNotNodeScript')}`, true);
+      new Notice(t('chat.dshNotNodeScript'), 6000);
       return;
     }
 
@@ -616,10 +645,15 @@ export class ChatView extends ItemView {
     return [lines.join('\n')];
   }
 
-  /** Parse a dsh stderr line: `dsh: CODE: message`. */
+  /** Parse a dsh stderr line: `dsh: CODE: message`, mapping known codes to hints. */
   private extractError(stderr: string): string {
-    const m = stderr.match(/dsh:\s*(?:[A-Z_]+:\s*)?(.+)/s);
-    const raw = m ? m[1].trim() : stderr.trim();
+    const m = stderr.match(/dsh:\s*(?:([A-Z][A-Z0-9_]*):\s*)?(.+)/s);
+    const code = m?.[1];
+    const raw = m ? m[2].trim() : stderr.trim();
+    if (code) {
+      const hint = errorHint(code);
+      if (hint) return hint;
+    }
     return raw || 'unknown error';
   }
 

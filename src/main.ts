@@ -2,13 +2,11 @@ import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { DshSettings, DshSettingTab, DEFAULT_SETTINGS, obsidianLocale } from './settings';
 import { ChatView, VIEW_TYPE_CHAT, SecurityConfirmModal } from './chat-view';
 import { DshClient } from './dsh-client';
-import { DshRunner } from './dsh-runner';
 import { HistoryStore } from './history';
 import { setLocale, resolveLocale } from './i18n';
 
 export default class DshPlugin extends Plugin {
   settings: DshSettings;
-  private runner: DshRunner;
   private vaultPatchInvalidated = false;
   history: HistoryStore | null = null;
   private settingsChangeListeners = new Set<() => void>();
@@ -16,7 +14,6 @@ export default class DshPlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     this.applyLocale();
-    this.runner = new DshRunner(this.settings);
 
     // History store: human-readable task history in the plugin DSH_HOME.
     // NOTE: vault.adapter paths are relative to the vault root (not absolute).
