@@ -35,6 +35,20 @@ const COMMON_NODE_CANDIDATES = [
   '/usr/bin/node',
 ];
 
+/** Numeric semver compare for nvm "vX.Y.Z" dirs (a < b => negative). */
+function versionCmp(a: string, b: string): number {
+  const key = (v: string): number[] => {
+    const m = v.match(/^v(\d+)\.(\d+)\.(\d+)/);
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+  };
+  const ka = key(a);
+  const kb = key(b);
+  for (let i = 0; i < 3; i++) {
+    if (ka[i] !== kb[i]) return ka[i] - kb[i];
+  }
+  return 0;
+}
+
 /**
  * Source of the stream-relay DSH plugin injected via --patch.
  * It listens on the live `session/event` stream and emits real-time
@@ -180,13 +194,13 @@ export class DshRunner {
     for (const candidate of COMMON_NODE_CANDIDATES) {
       if (await this.exists(candidate)) return candidate;
     }
-    // nvm: ~/.nvm/versions/node/vX.Y.Z/bin/node — pick the newest
+    // nvm: ~/.nvm/versions/node/vX.Y.Z/bin/node — pick the newest by semver
+    // (not lexicographic, which would rank v9 above v18).
     try {
       const nvmRoot = path.join(os.homedir(), '.nvm', 'versions', 'node');
       const versions = fs.readdirSync(nvmRoot)
-        .filter((v) => v.startsWith('v'))
-        .sort()
-        .reverse();
+        .filter((v) => /^v\d+\.\d+\.\d+/.test(v))
+        .sort((a, b) => versionCmp(b, a));
       for (const v of versions) {
         const p = path.join(nvmRoot, v, 'bin', 'node');
         if (await this.exists(p)) return p;
@@ -271,11 +285,20 @@ export class DshRunner {
    */
   workdir(vaultRoot: string): string {
     const rel = this.settings.workdir.trim();
-    const base = rel ? path.join(vaultRoot, rel) : vaultRoot;
+    if (!rel) return vaultRoot;
+    // Resolve `..` and absolute paths, then verify the result stays inside the
+    // vault: the workspace root is ALSO the sandbox write boundary, so an
+    // out-of-vault workdir would silently move that boundary.
+    const base = path.resolve(vaultRoot, rel);
+    const rel2 = path.relative(vaultRoot, base);
+    if (rel2 === '..' || rel2.startsWith('..' + path.sep)) {
+      return vaultRoot;
+    }
     try {
       fs.mkdirSync(base, { recursive: true });
     } catch {
       // read-only vault subpath: fall back to root
+      return vaultRoot;
     }
     return base;
   }

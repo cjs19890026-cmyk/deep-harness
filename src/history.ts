@@ -210,10 +210,13 @@ export class HistoryStore {
   }
 
   private trim(): void {
-    this.sessions.sort((a, b) => b.endedAt - a.endedAt);
-    if (this.sessions.length > this.limit) {
-      this.sessions = this.sessions.slice(0, this.limit);
-    }
+    // Pinned sessions are never auto-deleted; only the oldest non-pinned ones
+    // are dropped when over the limit (total may exceed `limit` if the user
+    // pinned more than the limit).
+    const pinned = this.sessions.filter((s) => s.pinned).sort((a, b) => b.endedAt - a.endedAt);
+    const others = this.sessions.filter((s) => !s.pinned).sort((a, b) => b.endedAt - a.endedAt);
+    const room = Math.max(0, this.limit - pinned.length);
+    this.sessions = [...pinned, ...others.slice(0, room)];
   }
 
   /**
