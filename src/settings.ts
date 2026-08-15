@@ -51,17 +51,6 @@ export const MODEL_OPTIONS = [
   { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
 ] as const;
 
-/** Context window (tokens) per model id. */
-export const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
-  'deepseek-v4-flash': 1_000_000,
-  'deepseek-v4-pro': 1_000_000,
-};
-
-/** Resolve the context window for a model id (safe default). */
-export function contextWindowFor(model: string): number {
-  return MODEL_CONTEXT_WINDOWS[model] ?? 1_000_000;
-}
-
 export const REASONING_OPTIONS = [
   { id: 'off', label: 'Off' },
   { id: 'high', label: 'High' },

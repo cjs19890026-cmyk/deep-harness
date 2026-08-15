@@ -240,13 +240,11 @@ IDLE ──用户发送──▶ SPAWNING ──进程起来──▶ RUNNING
 
 ### 5.1 `src/main.ts`(Plugin 入口)
 
-- `onload()`:加载设置 → 初始化 `DshRunner`(环境自检)→ 注册 ChatView、ribbon 图标、命令
+- `onload()`:加载设置 → 应用 locale → 初始化 HistoryStore → 注册 ChatView、ribbon 图标、命令、设置页
 - 命令:
   - `open-harness-chat` — 打开聊天面板
-  - `ask-selection` — 把当前选中的文本作为任务发给 agent(带选中内容)
-  - `ask-active-note` — 把当前笔记全文发给 agent
-  - `stop-run` — 停止当前运行
-- `onunload()`:kill 所有存活子进程
+  - `ask-active-note` — 把当前笔记全文作为任务发给 agent
+- `onunload()`:kill 所有存活 dsh 子进程(`DshClient.disposeAll()`)+ 归档当前会话到历史
 
 ### 5.2 `src/dsh-client.ts`(薄桥接层,核心)
 
@@ -385,7 +383,7 @@ class DshClient {
 - [ ] 会话持久化 runner(`--session <id>`)
 
 ### Phase 3 — 深度集成
-- [ ] 命令:`ask-selection` / `ask-active-note` / 批量处理 vault 笔记
+- [ ] 命令:`ask-selection`(把选中文本作为任务)/ 批量处理 vault 笔记
 - [ ] vault 内 `Harness/memory.md` 长期记忆
 - [ ] 自定义 profile 生成(替换 --patch,支持用户编辑)
 - [ ] 运行历史(复用 DSH sessions 存储,展示历史会话)

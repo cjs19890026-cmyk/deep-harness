@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { versionCmp } from './pure';
 import type { DshDiagnostics } from './dsh-client';
 import type { DshSettings } from './settings';
 
@@ -34,20 +35,6 @@ const COMMON_NODE_CANDIDATES = [
   '/usr/local/bin/node',
   '/usr/bin/node',
 ];
-
-/** Numeric semver compare for nvm "vX.Y.Z" dirs (a < b => negative). */
-function versionCmp(a: string, b: string): number {
-  const key = (v: string): number[] => {
-    const m = v.match(/^v(\d+)\.(\d+)\.(\d+)/);
-    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
-  };
-  const ka = key(a);
-  const kb = key(b);
-  for (let i = 0; i < 3; i++) {
-    if (ka[i] !== kb[i]) return ka[i] - kb[i];
-  }
-  return 0;
-}
 
 /**
  * Source of the stream-relay DSH plugin injected via --patch.

@@ -1,12 +1,13 @@
 import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { DshSettings, DshSettingTab, DEFAULT_SETTINGS, obsidianLocale } from './settings';
-import { ChatView, VIEW_TYPE_CHAT, SecurityConfirmModal } from './chat-view';
+import { ChatView, VIEW_TYPE_CHAT } from './chat-view';
+import { SecurityConfirmModal } from './modals';
 import { DshClient } from './dsh-client';
 import { HistoryStore } from './history';
 import { setLocale, resolveLocale } from './i18n';
 
 export default class DshPlugin extends Plugin {
-  settings: DshSettings;
+  settings!: DshSettings;
   private vaultPatchInvalidated = false;
   history: HistoryStore | null = null;
   private settingsChangeListeners = new Set<() => void>();

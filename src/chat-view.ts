@@ -1,24 +1,16 @@
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App, Setting, Menu, Component, MarkdownView } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Menu, Component, MarkdownView } from 'obsidian';
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
-import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS, contextWindowFor } from './settings';
+import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS } from './settings';
 import { ContextMeter, estimateTokens } from './context-meter';
+import { parseHeadlessOutput, errorHint, contextWindowFor } from './pure';
 import { HistoryTool } from './history';
 import { MentionSuggest } from './mention';
 import { t } from './i18n';
+import { NoteCreatorModal } from './modals';
 
 export const VIEW_TYPE_CHAT = 'dsh-obsidian-chat';
-
-/** Compact timestamp for the narrow history panel. */
-function formatShortTime(ts: number): string {
-  const d = new Date(ts);
-  const now = new Date();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  if (d.toDateString() === now.toDateString()) return `${hh}:${mm}`;
-  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${hh}:${mm}`;
-}
 
 /** Rough fixed token cost of the vault persona system prompt (built-in rules). */
 const PERSONA_FIXED_TOKENS = 250;
@@ -28,121 +20,9 @@ const QUOTE_FULL_LIMIT = 600;
 /** Longer selections are truncated to this many characters. */
 const QUOTE_TRUNCATE_LIMIT = 300;
 
-/**
- * Strip DLEVENT lines emitted by the injected stream-relay plugin from the
- * headless stdout. Those were already consumed live via onStdoutLine
- * (thinking + tool events); what remains is the agent's final answer.
- */
-export function parseHeadlessOutput(stdout: string): string {
-  const answerParts: string[] = [];
-  for (const line of stdout.split('\n')) {
-    if (line.startsWith('DLEVENT\t')) continue;
-    answerParts.push(line);
-  }
-  return answerParts.join('\n').trim();
-}
-
-/** Map a dsh error CODE to a user-friendly message; null = unknown code. */
-function errorHint(code: string): string | null {
-  switch (code) {
-    case 'INVALID_CREDENTIAL':
-    case 'MISSING_CREDENTIAL':
-    case 'NO_ADAPTER':
-      return t('chat.noCredential');
-    case 'QUOTA':
-      return t('chat.errQuota');
-    case 'RATE_LIMIT':
-      return t('chat.errRateLimit');
-    case 'TIMEOUT':
-      return t('chat.errTimeout');
-    case 'TRANSPORT':
-    case 'SERVER':
-      return t('chat.errNetwork');
-    case 'CONTEXT_WINDOW_EXCEEDED':
-      return t('chat.errContextWindow');
-    case 'SANDBOX_UNAVAILABLE':
-      return t('chat.errSandbox');
-    default:
-      return null;
-  }
-}
-
 interface MemoryTurn {
   user: string;
   assistant: string;
-}
-
-/** Simplified "save as note" modal (pattern borrowed from claudian). */
-export class NoteCreatorModal extends Modal {  private title = '';
-  private content: string;
-
-  constructor(app: App, content: string, private folder: string) {
-    super(app);
-    this.content = content;
-  }
-
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    new Setting(contentEl)
-      .setName(t('chat.saveNoteTitle'))
-      .addText((text) => text
-        .setPlaceholder(t('chat.saveNotePrompt'))
-        .onChange((v) => { this.title = v.trim(); }))
-      .addButton((button) => button
-        .setButtonText(t('chat.saveNote'))
-        .setCta()
-        .onClick(async () => {
-          const name = this.title || `Harness-${Date.now()}`;
-          const path = this.folder
-            ? `${this.folder.replace(/\/$/, '')}/${name}.md`
-            : `${name}.md`;
-          try {
-            await this.app.vault.create(path, this.content);
-            new Notice(t('chat.saved'));
-            this.close();
-          } catch (e) {
-            new Notice(e instanceof Error ? e.message : String(e));
-          }
-        }));
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
-  }
-}
-
-/** Confirmation dialog when switching to danger-full-access. */
-export class SecurityConfirmModal extends Modal {
-  constructor(
-    app: App,
-    private onConfirm: () => void,
-    private onCancel: () => void,
-  ) {
-    super(app);
-  }
-
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.createEl('h3', { text: t('security.confirmTitle') });
-    contentEl.createEl('p', { text: t('security.confirmDesc') });
-    const btns = contentEl.createDiv({ cls: 'dsh-modal-buttons' });
-    const ok = btns.createEl('button', { cls: 'mod-cta', text: t('security.confirmOk') });
-    ok.onclick = () => {
-      this.onConfirm();
-      this.close();
-    };
-    const cancel = btns.createEl('button', { text: t('security.cancel') });
-    cancel.onclick = () => {
-      this.onCancel();
-      this.close();
-    };
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
-  }
 }
 
 export class ChatView extends ItemView {
@@ -150,14 +30,14 @@ export class ChatView extends ItemView {
   private client: DshClient;
   private runner: DshRunner;
 
-  private messagesContainer: HTMLElement;
-  private inputEl: HTMLTextAreaElement;
-  private sendButton: HTMLButtonElement;
-  private clearBtn: HTMLButtonElement;
-  private modelTrigger: HTMLButtonElement;
-  private securityTrigger: HTMLButtonElement;
-  private referenceBtn: HTMLButtonElement;
-  private historyBtn: HTMLButtonElement;
+  private messagesContainer!: HTMLElement;
+  private inputEl!: HTMLTextAreaElement;
+  private sendButton!: HTMLButtonElement;
+  private clearBtn!: HTMLButtonElement;
+  private modelTrigger!: HTMLButtonElement;
+  private securityTrigger!: HTMLButtonElement;
+  private referenceBtn!: HTMLButtonElement;
+  private historyBtn!: HTMLButtonElement;
   private mention: MentionSuggest | null = null;
   /** Last focused markdown view, so its selection can be read even while the
    *  chat panel has focus. Kept in sync via the active-leaf-change event. */
