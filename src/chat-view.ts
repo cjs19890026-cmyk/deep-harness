@@ -324,6 +324,13 @@ export class ChatView extends ItemView {
     }
     const patches = await this.runner.ensureVaultPatch(vaultRoot);
     const patchPaths = [patches.persona, patches.think].filter((p): p is string => p !== null);
+    // Built-in obsidian skill + long-term memory seed + official CLI detection.
+    this.runner.ensureObsidianSkill(vaultRoot);
+    this.runner.ensureMemoryFile(vaultRoot);
+    const obsidianCli = await this.runner.detectObsidianCli();
+    const obsidianCliDir = obsidianCli
+      ? obsidianCli.substring(0, obsidianCli.lastIndexOf('/'))
+      : undefined;
     // Isolated DSH_HOME with the selected model + reasoning effort;
     // falls back to the user home when it cannot be prepared.
     const pluginHome = this.runner.ensurePluginDshHome(vaultRoot, {
@@ -452,6 +459,7 @@ export class ChatView extends ItemView {
         toolsMode: this.plugin.settings.toolExecutionMode,
         permissionMode: this.plugin.settings.permissionMode,
         patchPath: patchPaths,
+        obsidianCliDir,
         timeoutMs: this.plugin.settings.timeoutSec * 1000,
         signal: this.abortController.signal,
         onStdoutLine: handleStreamLine,

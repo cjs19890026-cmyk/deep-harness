@@ -62,6 +62,9 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 - ⚙️ 命令:「让 DeepHarness 处理当前笔记」
 - 🗂 生成的 vault persona(`.obsidian/plugins/dsh-obsidian/generated/vault.yml`)
   约束 agent 使用 wikilink、破坏性操作先征得同意;可自行编辑
+- 🧭 **内置 `obsidian` DSH skill**:agent 自动获得 Obsidian 约定 + 官方 CLI 速查,涉及 vault 操作时优先加载(可在设置关闭;用户可用 `<vault>/.dsh/skills/obsidian/` 覆盖)
+- 🖥 **官方 Obsidian CLI 接入**(Obsidian 1.12+,设置→通用→命令行界面):agent 用真实索引做读/搜索/frontmatter/标签/日记/反链,比裸 grep 更准;缺失时自动降级为文件工具
+- 🧠 **长期记忆** `Harness/memory.md`:agent 每轮先读、跨会话结论写回
 - 🌐 界面 i18n(en / 中文)
 
 ## 设置项
@@ -81,6 +84,8 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 | 显示思考过程 | 开 | 回答前显示可折叠思考过程 |
 | 显示工具调用 | 开 | 执行 bash/文件等工具时显示调用记录 |
 | 历史记录条数 | 50 | 历史面板最多保留的会话数,超出删最旧 |
+| 内置 Obsidian 技能 | 开 | 注入 obsidian skill(vault 约定 + CLI 速查) |
+| Obsidian CLI 路径 | 自动探测 | 官方 CLI;留空自动探测(Obsidian 1.12+) |
 | 自定义 persona | 空 | 追加指令 |
 
 ## 安全

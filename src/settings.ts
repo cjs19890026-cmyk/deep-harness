@@ -26,6 +26,10 @@ export interface DshSettings {
   showTools: boolean;
   /** Max history entries kept (10-200). */
   historyLimit: number;
+  /** Ship the built-in `obsidian` DSH skill into the isolated DSH_HOME. */
+  obsidianSkill: boolean;
+  /** Explicit path to the official Obsidian CLI (`obsidian`); empty = auto. */
+  obsidianCli: string;
 }
 
 export const DEFAULT_SETTINGS: DshSettings = {
@@ -44,6 +48,8 @@ export const DEFAULT_SETTINGS: DshSettings = {
   showThinking: true,
   showTools: true,
   historyLimit: 50,
+  obsidianSkill: true,
+  obsidianCli: '',
 };
 
 export const MODEL_OPTIONS = [
@@ -258,6 +264,29 @@ export class DshSettingTab extends PluginSettingTab {
           this.plugin.history?.setLimit(value);
         }));
 
+    // Built-in obsidian skill
+    new Setting(containerEl)
+      .setName(t('settings.obsidianSkill.name'))
+      .setDesc(t('settings.obsidianSkill.desc'))
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.obsidianSkill)
+        .onChange(async (value) => {
+          this.plugin.settings.obsidianSkill = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // Official Obsidian CLI path
+    new Setting(containerEl)
+      .setName(t('settings.obsidianCli.name'))
+      .setDesc(t('settings.obsidianCli.desc'))
+      .addText((text) => text
+        .setPlaceholder(t('settings.obsidianCli.placeholder'))
+        .setValue(this.plugin.settings.obsidianCli)
+        .onChange(async (value) => {
+          this.plugin.settings.obsidianCli = value;
+          await this.plugin.saveSettings();
+        }));
+
     // Custom persona
     new Setting(containerEl)
       .setName(t('settings.persona.name'))
@@ -302,6 +331,14 @@ export class DshSettingTab extends PluginSettingTab {
           } else {
             const nodeLine = containerEl.createEl('p', { cls: 'dsh-check-fail' });
             nodeLine.setText('✗ 未找到 Node.js,请在设置中填写 node 路径');
+          }
+          const cli = await runner.detectObsidianCli();
+          if (cli) {
+            const cliLine = containerEl.createEl('p', { cls: 'dsh-check-ok' });
+            cliLine.setText(t('settings.check.cliOk', { path: cli }));
+          } else {
+            const cliLine = containerEl.createEl('p', { cls: 'dsh-check-fail' });
+            cliLine.setText(t('settings.check.cliMissing'));
           }
         }));
 

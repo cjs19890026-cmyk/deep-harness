@@ -4,3 +4,6 @@ dist/
 *.log
 # 本地维护文档(功能日志 + 交接摘要),不上线
 MAINTENANCE.md
+
+# macOS
+.DS_Store
