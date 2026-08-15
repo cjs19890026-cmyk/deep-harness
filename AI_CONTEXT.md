@@ -25,6 +25,7 @@ src/i18n/index.ts    en/zh 双语,TranslationKey 类型约束
 styles.css           全部样式(类前缀 dsh-)
 esbuild.config.mjs   构建脚本(production 压缩)
 deploy.sh            构建 + 部署到指定 vault
+README.md / README_EN.md  中文 / 英文双语文档(顶部互链)
 docs/publish-checklist.md  发布到社区市场的检查清单与 PR 模板
 MAINTENANCE.md       本地维护日志(被 .gitignore 忽略,不上线)
 ```

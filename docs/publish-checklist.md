@@ -33,7 +33,7 @@
   "name": "DeepHarness",
   "author": "cjs19890026-cmyk",
   "description": "Embeds DeepSeek Harness as an AI collaborator in your vault: chat with a full agent (bash, web search, file tools) that works on your notes.",
-  "repo": "cjs19890026-cmyk/obsidian-harness-chat",
+  "repo": "cjs19890026-cmyk/deep-harness",
   "branch": "main"
 }
 ```
@@ -50,7 +50,7 @@ Add dsh-obsidian (DeepHarness)
 ## Plugin
 **name**: DeepHarness
 **id**: dsh-obsidian
-**repo**: cjs19890026-cmyk/obsidian-harness-chat
+**repo**: cjs19890026-cmyk/deep-harness
 **branch**: main
 
 ## Description

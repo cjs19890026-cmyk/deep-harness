@@ -1,5 +1,7 @@
 # DeepHarness — DeepSeek Harness for Obsidian
 
+> **English**: [README_EN.md](./README_EN.md) · 中文
+
 类 Claudian 的 AI 助手插件:在 Obsidian 中直接调用 **DeepSeek Harness**,向侧边栏聊天窗发送任务,DSH agent
 以你的 vault 为工作目录,用完整工具集(bash、文件读写、web 搜索、子代理等)自主执行。
 
