@@ -1,9 +1,9 @@
 {
   "id": "dsh-obsidian",
-  "name": "Harness Chat",
+  "name": "DeepHarness",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Call DeepSeek Harness directly from Obsidian: chat with a full agent (bash, web search, file tools) that works on your vault.",
-  "author": "dsh-obsidian",
+  "description": "Embeds DeepSeek Harness as an AI collaborator in your vault: chat with a full agent (bash, web search, file tools) that works on your notes.",
+  "author": "cjs19890026-cmyk",
   "isDesktopOnly": true
 }

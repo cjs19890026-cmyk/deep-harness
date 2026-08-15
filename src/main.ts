@@ -26,14 +26,14 @@ export default class DshPlugin extends Plugin {
     this.registerView(VIEW_TYPE_CHAT, (leaf: WorkspaceLeaf) => new ChatView(leaf, this));
 
     // Ribbon icon
-    this.addRibbonIcon('bot', 'Harness Chat', () => {
+    this.addRibbonIcon('bot', 'DeepHarness', () => {
       void this.activateChatView();
     });
 
     // Command: open chat
     this.addCommand({
       id: 'open-harness-chat',
-      name: '打开 Harness 聊天',
+      name: '打开 DeepHarness',
       callback: () => {
         void this.activateChatView();
       },
@@ -42,7 +42,7 @@ export default class DshPlugin extends Plugin {
     // Command: ask about the active note
     this.addCommand({
       id: 'ask-active-note',
-      name: '让 Harness 处理当前笔记',
+      name: '让 DeepHarness 处理当前笔记',
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         if (file?.extension === 'md') {

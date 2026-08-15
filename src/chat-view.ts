@@ -147,7 +147,7 @@ export class ChatView extends ItemView {
   }
 
   getDisplayText(): string {
-    return 'Harness Chat';
+    return 'DeepHarness';
   }
 
   getIcon(): string {
@@ -167,8 +167,8 @@ export class ChatView extends ItemView {
     // Header
     const header = container.createDiv({ cls: 'dsh-header' });
     const title = header.createDiv({ cls: 'dsh-header-title' });
-    title.createEl('h4', { text: 'Harness Chat' });
-    title.createSpan({ cls: 'dsh-header-sub', text: 'DeepSeek Harness' });
+    title.createEl('h4', { text: 'DeepHarness' });
+    title.createSpan({ cls: 'dsh-header-sub', text: 'DeepSeek · Obsidian' });
 
     this.clearBtn = header.createEl('button', { cls: 'dsh-icon-btn' });
     setIcon(this.clearBtn, 'pen');
@@ -323,23 +323,10 @@ export class ChatView extends ItemView {
 
   private showWelcome(): void {
     const w = this.messagesContainer.createDiv({ cls: 'dsh-welcome' });
-    w.createEl('h2', { text: 'Harness Chat' });
-    w.createEl('p', {
-      text: '直接把任务交给 DeepSeek Harness:它会用 bash、文件工具、web 搜索等能力在你的 vault 里工作。',
-    });
-    const examples = [
-      '把 Projects 文件夹里所有 #todo 笔记汇总成一份周报',
-      '用 web 搜索最近的 DeepSeek 新闻,写一篇 3 段摘要存为笔记',
-      '给当前 vault 生成一份目录结构说明',
-    ];
-    const list = w.createEl('ul', { cls: 'dsh-welcome-examples' });
-    for (const ex of examples) {
-      const li = list.createEl('li', { text: ex });
-      li.onclick = () => {
-        this.inputEl.value = ex;
-        this.inputEl.focus();
-      };
-    }
+    const icon = w.createDiv({ cls: 'dsh-welcome-icon' });
+    setIcon(icon, 'bot');
+    w.createDiv({ cls: 'dsh-welcome-title', text: 'DeepHarness' });
+    w.createDiv({ cls: 'dsh-welcome-sub', text: t('chat.welcomeSub') });
   }
 
   private clearChat(): void {

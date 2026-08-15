@@ -16,7 +16,6 @@
 .dsh-message-content,
 .dsh-status,
 .dsh-welcome,
-.dsh-welcome-examples li,
 .dsh-header,
 .dsh-header-sub {
   user-select: text;
@@ -31,8 +30,7 @@
 /* Keep buttons/controls non-selectable so clicks don't grab text. */
 .dsh-send-btn,
 .dsh-action-btn,
-.dsh-icon-btn,
-.dsh-welcome-examples li {
+.dsh-icon-btn {
   -webkit-user-drag: none;
 }
 
@@ -139,37 +137,34 @@
   gap: 10px;
 }
 
+/* Brand-minimal welcome: centered bot icon + product name, no copy. */
 .dsh-welcome {
   text-align: center;
-  padding: 24px 12px;
+  padding: 48px 12px;
   color: var(--text-muted);
 }
 
-.dsh-welcome h2 {
-  margin: 0 0 8px;
+.dsh-welcome-icon {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: var(--text-faint);
+}
+
+.dsh-welcome-icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.dsh-welcome-title {
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
   color: var(--text-normal);
 }
 
-.dsh-welcome-examples {
-  list-style: none;
-  padding: 0;
-  margin: 16px auto 0;
-  max-width: 420px;
-  text-align: left;
-}
-
-.dsh-welcome-examples li {
-  padding: 8px 10px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  margin-bottom: 8px;
-  cursor: pointer;
+.dsh-welcome-sub {
+  margin-top: 4px;
   font-size: var(--font-ui-smaller);
-  transition: border-color 0.15s ease;
-}
-
-.dsh-welcome-examples li:hover {
-  border-color: var(--interactive-accent);
+  color: var(--text-muted);
 }
 
 /* Message layer — claudian-style: uniform padding/radius on the message,

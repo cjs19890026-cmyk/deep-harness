@@ -1,6 +1,6 @@
-# obsidian-harness-chat
+# DeepHarness — DeepSeek Harness for Obsidian
 
-在 Obsidian 中直接调用 **DeepSeek Harness** 的插件:向侧边栏聊天窗发送任务,DSH agent
+类 Claudian 的 AI 助手插件:在 Obsidian 中直接调用 **DeepSeek Harness**,向侧边栏聊天窗发送任务,DSH agent
 以你的 vault 为工作目录,用完整工具集(bash、文件读写、web 搜索、子代理等)自主执行。
 
 > 设计文档见 [`DESIGN.md`](./DESIGN.md)。本仓库基于对
@@ -55,7 +55,7 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 - 📝 对话记忆:前几轮要点自动回填到新任务
 - 🕘 会话历史:对话按「会话」归档,历史面板支持恢复/置顶/重命名/备注;当前会话每轮完成后实时原子落盘,退出/崩溃/重载后未归档的会话会在下次启动自动补进历史,不丢记录
 - 📋 结果一键「复制 / 存为笔记」;界面文本支持光标选择
-- ⚙️ 命令:「让 Harness 处理当前笔记」
+- ⚙️ 命令:「让 DeepHarness 处理当前笔记」
 - 🗂 生成的 vault persona(`.obsidian/plugins/dsh-obsidian/generated/vault.yml`)
   约束 agent 使用 wikilink、破坏性操作先征得同意;可自行编辑
 - 🌐 界面 i18n(en / 中文)

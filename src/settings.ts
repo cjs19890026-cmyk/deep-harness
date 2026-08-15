@@ -75,9 +75,9 @@ export class DshSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h3', { text: 'DeepSeek Harness' });
+    containerEl.createEl('h3', { text: 'DeepHarness' });
     containerEl.createEl('p', {
-      text: '这个插件通过 dsh CLI 调用 DeepSeek Harness。请先确保本机已安装 dsh 并配置好模型凭据。',
+      text: '类 Claudian 的 AI 助手 · 由 DeepSeek Harness 驱动,运行在 Obsidian vault 中。请先确保本机已安装 dsh 并配置好模型凭据。',
       cls: 'setting-item-description',
     });
 

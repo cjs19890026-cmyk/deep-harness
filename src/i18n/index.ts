@@ -7,8 +7,9 @@ export type Locale = 'en' | 'zh';
 
 const translations = {
   en: {
-    'chat.title': 'Harness Chat',
-    'chat.placeholder': 'Ask DeepSeek Harness to work on your vault…',
+    'chat.title': 'DeepHarness',
+    'chat.welcomeSub': 'DeepSeek Harness · Obsidian AI collaborator',
+    'chat.placeholder': 'Ask anything…',
     'chat.send': 'Send',
     'chat.stop': 'Stop',
     'chat.clear': 'New conversation',
@@ -76,8 +77,9 @@ const translations = {
     'security.cancel': 'Cancel',
   },
   zh: {
-    'chat.title': 'Harness 聊天',
-    'chat.placeholder': '让 DeepSeek Harness 在你的 vault 里干活…',
+    'chat.title': 'DeepHarness',
+    'chat.welcomeSub': '由 DeepSeek Harness 驱动的 Obsidian AI 助手',
+    'chat.placeholder': '输入任务…',
     'chat.send': '发送',
     'chat.stop': '停止',
     'chat.clear': '新建对话',

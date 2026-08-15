@@ -10,7 +10,7 @@
 
 | 项目 | 结论 |
 |---|---|
-| 插件名 | `dsh-obsidian`(显示名 "Harness Chat") |
+| 插件名 | `dsh-obsidian`(显示名 "DeepHarness") |
 | 集成方式 | 插件通过 `child_process.spawn` 启动 `dsh --profile headless` 子进程,`cwd` = 当前 vault 根目录 |
 | 能力边界 | headless profile 挂载 DSH base 完整工具集:bash、文件读写/编辑/glob/grep、web 搜索、子代理等;受 DSH 自身文件沙箱管控 |
 | 已验证 | 本机真实运行 `dsh --profile headless "用 bash 运行 pwd 和 ls..."` → agent 执行工具并返回正确结果,exit 0 |
@@ -288,7 +288,7 @@ class DshClient {
 
 ```
 ┌──────────────────────────────┐
-│ Harness Chat            [⏹] │  ← 停止按钮(运行中)/ 清空
+│ DeepHarness             [⏹] │  ← 停止按钮(运行中)/ 清空
 │ ┌──────────────────────────┐ │
 │ │ 用户: 把 Projects 里所有  │ │
 │ │       #todo 笔记汇总成    │ │
