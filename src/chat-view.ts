@@ -23,32 +23,17 @@ function formatShortTime(ts: number): string {
 const PERSONA_FIXED_TOKENS = 250;
 
 /**
- * Split headless stdout into thinking blocks (DLEVENT/DTHINK lines emitted
- * by the injected stream-relay plugin) and the final answer.
+ * Strip DLEVENT lines emitted by the injected stream-relay plugin from the
+ * headless stdout. Those were already consumed live via onStdoutLine
+ * (thinking + tool events); what remains is the agent's final answer.
  */
-export function parseHeadlessOutput(stdout: string): { thinking: string | null; answer: string } {
-  const thinkingParts: string[] = [];
+export function parseHeadlessOutput(stdout: string): string {
   const answerParts: string[] = [];
   for (const line of stdout.split('\n')) {
-    if (line.startsWith('DLEVENT\t')) {
-      // Already consumed live by the run panel; skip.
-      continue;
-    }
-    if (line.startsWith('DTHINK\t')) {
-      const payload = line.slice('DTHINK\t'.length);
-      try {
-        thinkingParts.push(JSON.parse(payload) as string);
-      } catch {
-        thinkingParts.push(payload);
-      }
-    } else {
-      answerParts.push(line);
-    }
+    if (line.startsWith('DLEVENT\t')) continue;
+    answerParts.push(line);
   }
-  return {
-    thinking: thinkingParts.length > 0 ? thinkingParts.join('\n\n') : null,
-    answer: answerParts.join('\n').trim(),
-  };
+  return answerParts.join('\n').trim();
 }
 
 interface MemoryTurn {
@@ -137,6 +122,7 @@ export class ChatView extends ItemView {
   private messagesContainer: HTMLElement;
   private inputEl: HTMLTextAreaElement;
   private sendButton: HTMLButtonElement;
+  private clearBtn: HTMLButtonElement;
   private modelTrigger: HTMLButtonElement;
   private securityTrigger: HTMLButtonElement;
   private historyBtn: HTMLButtonElement;
@@ -184,10 +170,10 @@ export class ChatView extends ItemView {
     title.createEl('h4', { text: 'Harness Chat' });
     title.createSpan({ cls: 'dsh-header-sub', text: 'DeepSeek Harness' });
 
-    const clearBtn = header.createEl('button', { cls: 'dsh-icon-btn' });
-    setIcon(clearBtn, 'pen');
-    clearBtn.setAttribute('aria-label', t('chat.clear'));
-    clearBtn.onclick = () => this.clearChat();
+    this.clearBtn = header.createEl('button', { cls: 'dsh-icon-btn' });
+    setIcon(this.clearBtn, 'pen');
+    this.clearBtn.setAttribute('aria-label', t('chat.clear'));
+    this.clearBtn.onclick = () => this.clearChat();
 
     // Messages
     this.messagesContainer = container.createDiv({ cls: 'dsh-messages' });
@@ -357,6 +343,10 @@ export class ChatView extends ItemView {
   }
 
   private clearChat(): void {
+    if (this.running) {
+      new Notice(t('chat.busy'));
+      return;
+    }
     // Archive the current session into history, then start a new one.
     void this.plugin.history?.endSession();
     this.memory = [];
@@ -554,11 +544,11 @@ export class ChatView extends ItemView {
         contentEl.createEl('span', { text: `> ❌ ${t('chat.failed', { message: errMsg })}`, cls: 'dsh-error-inline' });
         this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, thinkingText, null);
       } else {
-        // Split reasoning blocks (DLEVENT/DTHINK lines) from the final answer.
-        const { thinking, answer } = parseHeadlessOutput(result.stdout);
-        const mergedThinking = thinking ?? (thinkingText ? thinkingText : null);
+        // The stream relay consumed DLEVENT lines live; the remaining stdout
+        // is the final answer.
+        const answer = parseHeadlessOutput(result.stdout);
         statusEl.setText(`✓ ${t('chat.completed', { duration: String(Math.round(result.durationMs / 1000)) })}`);
-        this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, mergedThinking ?? '', answer);
+        this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, thinkingText, answer);
         // Remember this turn for the next task
         this.memory.push({
           user: message,
@@ -570,7 +560,7 @@ export class ChatView extends ItemView {
           ts: Date.now(),
           user: message,
           answer,
-          thinking: mergedThinking || undefined,
+          thinking: thinkingText || undefined,
           tools: toolsHistory.length > 0 ? toolsHistory : undefined,
           durationMs: result.durationMs,
         }, {
@@ -646,11 +636,13 @@ export class ChatView extends ItemView {
   private setButtonToStop(): void {
     this.sendButton.setText(t('chat.stop'));
     this.sendButton.addClass('is-stop');
+    this.clearBtn.disabled = true;
   }
 
   private resetButtonToSend(): void {
     this.sendButton.setText(t('chat.send'));
     this.sendButton.removeClass('is-stop');
+    this.clearBtn.disabled = false;
   }
 
   /** Create a message wrapper element (used by streaming send). */
@@ -667,6 +659,7 @@ export class ChatView extends ItemView {
     content: string,
     isSystem = false,
     thinking?: string | null,
+    tools?: HistoryTool[],
   ): void {
     const el = this.messagesContainer.createDiv({
       cls: `dsh-message dsh-message-${role}${isSystem ? ' dsh-message-system' : ''}`,
@@ -676,6 +669,9 @@ export class ChatView extends ItemView {
       // Collapsible thinking block (shown before the answer)
       if (thinking) {
         this.renderThinkingBlock(contentEl, thinking);
+      }
+      if (tools && tools.length > 0) {
+        this.renderToolsBlock(contentEl, tools);
       }
       void MarkdownRenderer.render(this.app, content, contentEl, '', this);
       if (!isSystem) this.addMessageActions(el, content);
@@ -700,6 +696,41 @@ export class ChatView extends ItemView {
       if (collapsed) setIcon(chevron, 'chevron-down');
       else setIcon(chevron, 'chevron-right');
     };
+  }
+
+  /** Collapsed "工具调用" block for restored history turns. */
+  private renderToolsBlock(container: HTMLElement, tools: HistoryTool[]): void {
+    const wrap = container.createDiv({ cls: 'dsh-stream-tools' });
+    for (const tool of tools) {
+      const call = wrap.createDiv({ cls: 'dsh-tool-call' });
+      const header = call.createEl('button', { cls: 'dsh-tool-header' });
+      const icon = header.createSpan({ cls: 'dsh-tool-icon' });
+      setIcon(icon, 'wrench');
+      header.createSpan({ cls: 'dsh-tool-name', text: tool.name });
+      if (tool.args) header.createSpan({ cls: 'dsh-tool-summary', text: tool.args });
+      const status = header.createSpan({ cls: 'dsh-tool-status' });
+      if (tool.ok) {
+        status.addClass('status-completed');
+        setIcon(status, 'check');
+      } else {
+        status.addClass('status-error');
+        setIcon(status, 'x');
+      }
+      const chevron = header.createSpan({ cls: 'dsh-tool-chevron' });
+      setIcon(chevron, 'chevron-right');
+      const content = call.createDiv({ cls: 'dsh-tool-content hidden' });
+      if (tool.args) content.createDiv({ cls: 'dsh-tool-cmd', text: tool.args });
+      const lineText = tool.summary
+        ? tool.summary
+        : tool.ok ? '(执行完成,无输出)' : '(执行失败)';
+      content.createDiv({ cls: 'dsh-tool-line', text: lineText });
+      header.onclick = () => {
+        const collapsed = content.hasClass('hidden');
+        content.toggleClass('hidden', !collapsed);
+        if (collapsed) setIcon(chevron, 'chevron-down');
+        else setIcon(chevron, 'chevron-right');
+      };
+    }
   }
 
   /** Finalize the streaming message: collapse thinking, render the answer. */
@@ -777,7 +808,7 @@ export class ChatView extends ItemView {
     this.messagesContainer.empty();
     for (const t of activated.turns) {
       this.renderMessage('user', t.user);
-      this.renderMessage('assistant', t.answer, false);
+      this.renderMessage('assistant', t.answer, false, t.thinking, t.tools);
     }
     this.contextMeter?.reset();
     this.scrollToBottom();

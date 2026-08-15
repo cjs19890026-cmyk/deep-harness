@@ -111,10 +111,10 @@ export class DshSettingTab extends PluginSettingTab {
 
     // node binary
     new Setting(containerEl)
-      .setName('Node.js 路径')
-      .setDesc('留空则自动探测(Homebrew / nvm / volta)。Obsidian 的 PATH 不含 Homebrew 目录,插件会直接用 node 运行 dsh 脚本。')
+      .setName(t('settings.nodeBin.name'))
+      .setDesc(t('settings.nodeBin.desc'))
       .addText((text) => text
-        .setPlaceholder('/opt/homebrew/bin/node')
+        .setPlaceholder(t('settings.nodeBin.placeholder'))
         .setValue(this.plugin.settings.nodeBin)
         .onChange(async (value) => {
           this.plugin.settings.nodeBin = value;
@@ -171,8 +171,8 @@ export class DshSettingTab extends PluginSettingTab {
 
     // Tool execution mode
     new Setting(containerEl)
-      .setName('工具执行模式 (DSH_TOOLS_MODE)')
-      .setDesc('native(默认)= 原生函数调用;code = 通过 run_code 执行;both = 两者。留空使用 DSH 默认。')
+      .setName(t('settings.toolMode.name'))
+      .setDesc(t('settings.toolMode.desc'))
       .addDropdown((dd) => {
         dd.addOption('', '默认 (native)');
         dd.addOption('native', 'native');
@@ -186,8 +186,8 @@ export class DshSettingTab extends PluginSettingTab {
 
     // Model (also switchable from the chat header)
     new Setting(containerEl)
-      .setName('模型 (Model)')
-      .setDesc('默认模型,可在聊天面板顶部快速切换。')
+      .setName(t('settings.model.name'))
+      .setDesc(t('settings.model.desc'))
       .addDropdown((dd) => {
         for (const m of MODEL_OPTIONS) dd.addOption(m.id, m.label);
         dd.setValue(this.plugin.settings.model).onChange(async (value) => {
@@ -198,8 +198,8 @@ export class DshSettingTab extends PluginSettingTab {
 
     // Reasoning effort (also switchable from the chat header)
     new Setting(containerEl)
-      .setName('推理等级 (Thinking)')
-      .setDesc('off / high / max,可在聊天面板顶部快速切换。')
+      .setName(t('settings.reasoning.name'))
+      .setDesc(t('settings.reasoning.desc'))
       .addDropdown((dd) => {
         for (const r of REASONING_OPTIONS) dd.addOption(r.id, r.label);
         dd.setValue(this.plugin.settings.reasoningEffort).onChange(async (value) => {
@@ -210,8 +210,8 @@ export class DshSettingTab extends PluginSettingTab {
 
     // Permission / sandbox mode (also switchable from the chat header)
     new Setting(containerEl)
-      .setName('安全模式 (Security)')
-      .setDesc('只读 = 拒绝所有文件修改;工作区写入 = 文件工具限 vault 内;完全访问 = 等同终端权限(谨慎)。')
+      .setName(t('settings.permission.name'))
+      .setDesc(t('settings.permission.desc'))
       .addDropdown((dd) => {
         for (const p of PERMISSION_OPTIONS) dd.addOption(p.id, p.label);
         dd.setValue(this.plugin.settings.permissionMode).onChange(async (value) => {
@@ -222,8 +222,8 @@ export class DshSettingTab extends PluginSettingTab {
 
     // Show/hide thinking block
     new Setting(containerEl)
-      .setName('显示思考过程')
-      .setDesc('开启后,AI 回答前会显示可折叠的思考过程;关闭则不显示。')
+      .setName(t('settings.showThinking.name'))
+      .setDesc(t('settings.showThinking.desc'))
       .addToggle((toggle) => toggle
         .setValue(this.plugin.settings.showThinking)
         .onChange(async (value) => {
@@ -233,8 +233,8 @@ export class DshSettingTab extends PluginSettingTab {
 
     // Show/hide tool calls
     new Setting(containerEl)
-      .setName('显示工具调用')
-      .setDesc('开启后,AI 执行工具(如 bash、文件操作)时会显示调用记录;关闭则不显示。')
+      .setName(t('settings.showTools.name'))
+      .setDesc(t('settings.showTools.desc'))
       .addToggle((toggle) => toggle
         .setValue(this.plugin.settings.showTools)
         .onChange(async (value) => {
@@ -244,8 +244,8 @@ export class DshSettingTab extends PluginSettingTab {
 
     // History limit
     new Setting(containerEl)
-      .setName('历史记录条数')
-      .setDesc('输入框上方「历史记录」面板最多保留多少条记录,超出自动删除最旧的。')
+      .setName(t('settings.historyLimit.name'))
+      .setDesc(t('settings.historyLimit.desc'))
       .addSlider((slider) => slider
         .setLimits(10, 200, 10)
         .setValue(this.plugin.settings.historyLimit)

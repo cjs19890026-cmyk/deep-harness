@@ -52,7 +52,8 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 - ⚙️ **推理等级 (Thinking)**:顶栏可切换 **off / high / max**
   - 通过插件专属 DSH_HOME(`dsh-home/` 目录)写入 `agent-default-model` 配置,凭据软链复用 `~/.dsh`,**不污染**全局 DSH 设置
 - ⏹ 停止按钮(SIGTERM 终止运行)、超时兜底(默认 10 分钟)
-- 📝 会话记忆:前几轮要点自动回填到新任务
+- 📝 对话记忆:前几轮要点自动回填到新任务
+- 🕘 会话历史:对话按「会话」归档,历史面板支持恢复/置顶/重命名/备注;当前会话每轮完成后实时原子落盘,退出/崩溃/重载后未归档的会话会在下次启动自动补进历史,不丢记录
 - 📋 结果一键「复制 / 存为笔记」;界面文本支持光标选择
 - ⚙️ 命令:「让 Harness 处理当前笔记」
 - 🗂 生成的 vault persona(`.obsidian/plugins/dsh-obsidian/generated/vault.yml`)
@@ -70,6 +71,12 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 | 任务超时 | 600s | 超时自动停止 |
 | 对话记忆 | 开 | 上下文回填 |
 | 工具执行模式 | 默认 (native) | native / code / both(工具后端,非文件沙箱) |
+| 模型 (Model) | DeepSeek V4 Flash | 默认模型,顶栏可快速切换 |
+| 推理等级 (Thinking) | high | off / high / max,顶栏可切换 |
+| 安全模式 (Security) | 工作区写入 | 只读 / 工作区写入 / 完全访问 |
+| 显示思考过程 | 开 | 回答前显示可折叠思考过程 |
+| 显示工具调用 | 开 | 执行 bash/文件等工具时显示调用记录 |
+| 历史记录条数 | 50 | 历史面板最多保留的会话数,超出删最旧 |
 | 自定义 persona | 空 | 追加指令 |
 
 ## 安全
@@ -80,7 +87,8 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 
 ## 路线图
 
-- **Phase 2**:流式输出(JSON Lines 事件中继)、工具调用日志、文件修改 diff 确认、会话持久化
+- **Phase 2**(已基本完成):流式输出、工具调用日志、会话历史(持久化)
+  - 剩余:文件修改 diff 确认
 - **Phase 3**:批量处理 vault 笔记、长期记忆(`Harness/memory.md`)、运行历史
 
 详见 [`DESIGN.md`](./DESIGN.md) 第 8 节。

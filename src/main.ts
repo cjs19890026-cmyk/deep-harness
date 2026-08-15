@@ -59,8 +59,12 @@ export default class DshPlugin extends Plugin {
   }
 
   onunload(): void {
-    // DshClient instances dispose their children in onClose;
-    // nothing else to clean here.
+    // Persist the in-progress conversation into history before unload.
+    // endSession() + save() are synchronous (fs.writeFileSync + renameSync),
+    // so the archive + write complete inline. Obsidian declares onunload() as
+    // void and does NOT await a returned Promise — an async onunload would be
+    // cut off mid-write on quit.
+    this.history?.endSession();
   }
 
   /** Absolute filesystem path of the vault root. */

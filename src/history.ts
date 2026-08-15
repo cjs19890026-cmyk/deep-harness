@@ -1,10 +1,13 @@
 import { App, Notice } from 'obsidian';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Session-based history: completed conversations are archived as session
  * records (a session = the turns since the last "clear conversation").
- * The in-memory current session is not persisted until it is ended (via
- * clear-conversation), then it joins the archived list, newest first.
+ * The in-progress (current) session is also persisted after every turn, and
+ * every write is atomic (tmp file + rename) and serialized through a promise
+ * chain, so a crash / quit never loses work or corrupts the file.
  */
 
 export interface HistoryTool {
@@ -50,6 +53,8 @@ function titleFromTurn(user: string): string {
 export class HistoryStore {
   private sessions: SessionRecord[] = [];
   private current: SessionRecord;
+  /** Absolute path to history.json (resolved from the vault root). */
+  private absPath: string;
 
   constructor(
     private app: App,
@@ -57,6 +62,9 @@ export class HistoryStore {
     private limit: number,
   ) {
     this.current = this.newSession();
+    const adapter = this.app.vault.adapter as unknown as { getBasePath?: () => string };
+    const base = typeof adapter.getBasePath === 'function' ? adapter.getBasePath() : '';
+    this.absPath = path.join(base, this.file);
   }
 
   /** Archived sessions: pinned first, then newest first. */
@@ -80,18 +88,28 @@ export class HistoryStore {
 
   async load(): Promise<void> {
     try {
-      const raw = await this.app.vault.adapter.read(this.file);
-      const parsed = JSON.parse(raw) as { sessions?: SessionRecord[] };
+      const raw = await fs.promises.readFile(this.absPath, 'utf8');
+      const parsed = JSON.parse(raw) as { sessions?: SessionRecord[]; current?: SessionRecord };
       this.sessions = Array.isArray(parsed.sessions)
         ? parsed.sessions.map((s) => ({ ...s, pinned: s.pinned ?? false, note: s.note ?? '' }))
         : [];
+      const cur = parsed.current;
+      if (cur && Array.isArray(cur.turns) && cur.turns.length > 0) {
+        // A previous run was interrupted (quit / crash) before its in-progress
+        // session was archived — Obsidian does NOT reliably call onunload() on
+        // quit. Archive it now so it shows up in history on this load.
+        this.sessions.push({ ...cur, pinned: cur.pinned ?? false, note: cur.note ?? '' });
+      }
+      this.current = this.newSession();
       this.trim();
+      this.save();
     } catch {
       this.sessions = [];
+      this.current = this.newSession();
     }
   }
 
-  /** Append one turn to the current session. */
+  /** Append one turn to the current session, then persist it. */
   async addTurn(
     turn: HistoryTurn,
     meta: { model: string; effort: string; permission: string },
@@ -105,6 +123,7 @@ export class HistoryStore {
     }
     this.current.turns.push(turn);
     this.current.endedAt = turn.ts;
+    await this.save();
   }
 
   /** Archive the current session (if it has turns) and start a new one. */
@@ -118,8 +137,7 @@ export class HistoryStore {
 
   /**
    * Re-activate an archived session as the current one: future turns are
-   * appended back into it, so resuming the same session repeatedly keeps a
-   * continuous context. Returns the activated session, or null if missing.
+   * appended back into it. Returns the activated session, or null if missing.
    */
   async activateSession(id: string): Promise<SessionRecord | null> {
     if (this.current.turns.length > 0) {
@@ -127,7 +145,6 @@ export class HistoryStore {
     }
     const idx = this.sessions.findIndex((x) => x.id === id);
     if (idx === -1) {
-      // nothing to activate; keep the archived current we just pushed
       this.trim();
       await this.save();
       return null;
@@ -146,7 +163,6 @@ export class HistoryStore {
     await this.save();
   }
 
-  /** Rename an archived session. */
   async renameSession(id: string, title: string): Promise<void> {
     const s = this.sessions.find((x) => x.id === id);
     if (s) {
@@ -155,7 +171,6 @@ export class HistoryStore {
     }
   }
 
-  /** Toggle the pinned flag of an archived session. */
   async togglePin(id: string): Promise<void> {
     const s = this.sessions.find((x) => x.id === id);
     if (s) {
@@ -164,7 +179,6 @@ export class HistoryStore {
     }
   }
 
-  /** Edit the note of an archived session. */
   async setNote(id: string, note: string): Promise<void> {
     const s = this.sessions.find((x) => x.id === id);
     if (s) {
@@ -202,9 +216,22 @@ export class HistoryStore {
     }
   }
 
-  private async save(): Promise<void> {
+  /**
+   * Persist sessions + current atomically (tmp file then rename). Writes are
+   * synchronous (writeFileSync + renameSync) so they complete inline — this is
+   * required for onunload(), which Obsidian declares as void and never awaits.
+   * The file is small (tens of KB), so a sync write is well under 1ms.
+   */
+  private save(): void {
+    const payload = JSON.stringify({
+      sessions: this.sessions,
+      ...(this.current.turns.length > 0 ? { current: this.current } : {}),
+    }, null, 2);
     try {
-      await this.app.vault.adapter.write(this.file, JSON.stringify({ sessions: this.sessions }, null, 2));
+      fs.mkdirSync(path.dirname(this.absPath), { recursive: true });
+      const tmp = `${this.absPath}.tmp`;
+      fs.writeFileSync(tmp, payload, 'utf8');
+      fs.renameSync(tmp, this.absPath);
     } catch (e) {
       new Notice(`历史会话保存失败: ${e instanceof Error ? e.message : String(e)}`);
     }
