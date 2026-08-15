@@ -10,8 +10,6 @@
  * the estimate with real usage without touching this UI.
  */
 
-export const CONTEXT_WINDOW = 1_000_000; // deepseek-v4-flash / pro
-
 /** Rough token estimate for a text blob (mixed CJK / Latin). */
 export function estimateTokens(text: string): number {
   if (!text) return 0;
@@ -53,8 +51,10 @@ export class ContextMeter {
   private tip: HTMLElement;
   private progress: SVGCircleElement;
   private tokens = 0;
+  private contextWindow: number;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, contextWindow: number) {
+    this.contextWindow = contextWindow;
     const size = (RADIUS + STROKE) * 2 + 4;
     this.el = container.createDiv({ cls: 'dsh-meter' });
     this.el.setAttribute('aria-label', 'Context usage');
@@ -132,8 +132,14 @@ export class ContextMeter {
     this.render();
   }
 
+  /** Update the denominator when the model changes. */
+  setContextWindow(contextWindow: number): void {
+    this.contextWindow = contextWindow;
+    this.render();
+  }
+
   private render(): void {
-    const fraction = Math.min(this.tokens / CONTEXT_WINDOW, 1);
+    const fraction = Math.min(this.tokens / this.contextWindow, 1);
     const pct = fraction * 100;
 
     this.progress.setAttribute('stroke-dashoffset', String(CIRCUMFERENCE * (1 - fraction)));
@@ -149,6 +155,6 @@ export class ContextMeter {
     const detailEl = this.tip.querySelector('.dsh-meter-tip-detail') as HTMLElement;
     pctEl.textContent = label + '%';
     pctEl.style.color = color;
-    detailEl.textContent = `~${this.tokens.toLocaleString()} / ${CONTEXT_WINDOW.toLocaleString()} tokens (估算)`;
+    detailEl.textContent = `~${this.tokens.toLocaleString()} / ${this.contextWindow.toLocaleString()} tokens (估算)`;
   }
 }

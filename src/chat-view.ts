@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App,
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
-import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS } from './settings';
+import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS, contextWindowFor } from './settings';
 import { ContextMeter, estimateTokens } from './context-meter';
 import { HistoryTool } from './history';
 import { MentionSuggest } from './mention';
@@ -281,7 +281,7 @@ export class ChatView extends ItemView {
     this.securityTrigger.onclick = (e) => this.showSecurityMenu(e);
 
     // Context usage ring
-    this.contextMeter = new ContextMeter(toolbar);
+    this.contextMeter = new ContextMeter(toolbar, contextWindowFor(this.plugin.settings.model));
 
     // Send button (capsule)
     this.sendButton = toolbar.createEl('button', { cls: 'dsh-send-btn', text: t('chat.send') });
@@ -315,6 +315,8 @@ export class ChatView extends ItemView {
       'dsh-trigger-danger',
       this.plugin.settings.permissionMode === 'danger-full-access',
     );
+    // Keep the context meter's denominator in sync with the selected model.
+    this.contextMeter?.setContextWindow(contextWindowFor(this.plugin.settings.model));
   }
 
   /** Model + reasoning effort menu (two sections in one popup). */
