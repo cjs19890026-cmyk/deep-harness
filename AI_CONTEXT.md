@@ -19,7 +19,11 @@ src/chat-view.ts     聊天 UI:流式渲染、思考/工具块、历史面板、
 src/dsh-client.ts    子进程桥:spawn node <dsh>/bin.js --profile headless,超时/取消
 src/dsh-runner.ts    二进制探测、--patch 覆盖层生成(persona + stream-relay)、隔离 DSH_HOME
 src/history.ts       会话历史:原子落盘、置顶/重命名/备注/恢复
-src/context-meter.ts 上下文用量环(本地 token 估算)
+src/context-meter.ts 上下文用量环(按模型各自的上下文窗口估算)
+src/mention.ts       @ 提及:输入框 @ 弹 vault 笔记列表,选中生成 [[wikilink]]
+src/modals.ts        独立 Modal 组件(NoteCreator / SecurityConfirm 等,自 chat-view 抽出)
+src/pure.ts          无 Obsidian 依赖的纯函数(可单测,如 parseHeadlessOutput / 错误分类)
+src/pure.test.ts     vitest 单元测试
 src/settings.ts      设置项 + 设置页 UI
 src/i18n/index.ts    en/zh 双语,TranslationKey 类型约束
 styles.css           全部样式(类前缀 dsh-)
@@ -35,7 +39,7 @@ MAINTENANCE.md       本地维护日志(被 .gitignore 忽略,不上线)
 - TypeScript + esbuild(单文件 bundle → `dist/main.js`,CJS)
 - Obsidian API(ItemView / Plugin / MarkdownRenderer / Menu / Modal)
 - Node.js `child_process` 桥接 DSH CLI;**无任何前端框架**
-- 无运行时依赖;nodeBuiltins 全部 external,不打进 bundle
+- vitest(纯函数单元测试,`npm test`);无运行时依赖;nodeBuiltins 全部 external,不打进 bundle
 
 ## 重要约定
 
@@ -56,6 +60,7 @@ MAINTENANCE.md       本地维护日志(被 .gitignore 忽略,不上线)
 ```bash
 npm run build            # production 构建 → dist/
 npm run dev              # 开发构建(不压缩,inline sourcemap)
+npm test                 # vitest 单元测试(src/pure.test.ts)
 npx tsc --noEmit         # 类型检查
 ./deploy.sh <vault路径>   # 构建 + 复制到 vault 插件目录
 # 部署后必须:设置 → 第三方插件 → 禁用再启用该插件(或 Cmd+Q 完全退出 Obsidian)
