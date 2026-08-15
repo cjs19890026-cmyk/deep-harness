@@ -1,6 +1,7 @@
 import { Plugin, WorkspaceLeaf, Notice } from 'obsidian';
 import { DshSettings, DshSettingTab, DEFAULT_SETTINGS, obsidianLocale } from './settings';
 import { ChatView, VIEW_TYPE_CHAT, SecurityConfirmModal } from './chat-view';
+import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
 import { HistoryStore } from './history';
 import { setLocale, resolveLocale } from './i18n';
@@ -60,6 +61,10 @@ export default class DshPlugin extends Plugin {
   }
 
   onunload(): void {
+    // Kill any running dsh child processes. Obsidian may or may not call each
+    // view's onClose() during unload, so walk the live-client registry
+    // explicitly — the safety net for reload/disable while a task runs.
+    DshClient.disposeAll();
     // Persist the in-progress conversation into history before unload.
     // endSession() + save() are synchronous (fs.writeFileSync + renameSync),
     // so the archive + write complete inline. Obsidian declares onunload() as

@@ -57,7 +57,13 @@ export interface DshDiagnostics {
 }
 
 export class DshClient {
+  /** Every live client, so the plugin can kill all children on unload. */
+  private static live = new Set<DshClient>();
   private child: ChildProcess | null = null;
+
+  constructor() {
+    DshClient.live.add(this);
+  }
 
   /**
    * Run one headless task to completion.
@@ -120,6 +126,9 @@ export class DshClient {
         env,
         shell: false,
         stdio: ['ignore', 'pipe', 'pipe'],
+        // Own process group so Stop / unload can signal dsh AND its sandboxed
+        // bash children together (process.kill(-pid)).
+        detached: true,
       });
       this.child = child;
 
@@ -191,19 +200,34 @@ export class DshClient {
     return this.child !== null;
   }
 
-  /** Kill any live children (plugin unload). */
+  /** Kill any live children and drop this client from the registry. */
   dispose(): void {
     this.stop();
+    DshClient.live.delete(this);
+  }
+
+  /** Kill every live child (plugin unload / reload). */
+  static disposeAll(): void {
+    for (const client of [...DshClient.live]) client.dispose();
   }
 
   private killChild(child: ChildProcess): void {
     if (child.exitCode !== null || child.signalCode !== null) return;
+    const pid = child.pid;
+    const kill = (signal: NodeJS.Signals): void => {
+      // Signal the whole process group on POSIX (dsh + its sandboxed bash
+      // children); Windows has no group-kill, so fall back to the child only.
+      if (pid !== undefined && process.platform !== 'win32') {
+        try { process.kill(-pid, signal); return; } catch { /* group gone */ }
+      }
+      try { child.kill(signal); } catch { /* already gone */ }
+    };
     try {
-      child.kill('SIGTERM');
+      kill('SIGTERM');
       // Escalate after a grace period.
       setTimeout(() => {
         if (child.exitCode === null && child.signalCode === null) {
-          try { child.kill('SIGKILL'); } catch { /* already gone */ }
+          kill('SIGKILL');
         }
       }, 3000);
     } catch {
