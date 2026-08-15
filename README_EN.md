@@ -56,6 +56,8 @@ After enabling the plugin, click the bot icon in the left ribbon to open the cha
 - 📝 **Conversation memory**: key points from earlier turns are automatically refilled into new tasks
 - 🕘 **Session history**: conversations are archived per session; the history panel supports resume / pin / rename / note. The current session is atomically persisted after every turn — sessions that were not archived when Obsidian quit/crashed are restored into history on next launch, so nothing is lost
 - 📋 **Copy / Save as note** in one click; UI text is selectable
+- 🔗 **Reference current note**: the quote icon in the toolbar above the input inserts the note you are reading — if you have **text selected** in the note, the selection is inserted as a quoted block (auto-truncated with a source line); **without a selection** it inserts a bare wikilink (modeled after Claudian's New conversation)
+- @ **Mention notes**: type `@` in the input box to search and reference any note in the vault — live title/path matching, inserted as `[[path]]` (scoped by the "Working directory" setting)
 - ⚙️ **Command**: "Let DeepHarness process the current note"
 - 🗂 **Generated vault persona** (`.obsidian/plugins/dsh-obsidian/generated/vault.yml`)
   instructs the agent to use wikilinks and ask before destructive operations; freely editable

@@ -552,6 +552,77 @@
   background: var(--background-modifier-hover);
 }
 
+/* ── @ mention popup ─────────────────────────────────── */
+.dsh-mention-popup {
+  position: fixed;
+  z-index: 1000;
+  width: 320px;
+  max-height: 240px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  transform-origin: bottom right;
+  animation: dsh-panel-grow 0.18s ease-out;
+}
+
+.dsh-mention-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.dsh-mention-item:hover,
+.dsh-mention-item.is-selected {
+  background: var(--background-modifier-hover);
+}
+
+.dsh-mention-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.dsh-mention-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dsh-mention-title {
+  font-size: var(--font-ui-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dsh-mention-path {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: auto;
+  max-width: 140px;
+  text-align: right;
+}
+
+.dsh-mention-empty {
+  padding: 8px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  text-align: center;
+}
+
 /* ── Composer card (input + toolbar, web-UI style) ──────── */
 .dsh-composer {
   display: flex;

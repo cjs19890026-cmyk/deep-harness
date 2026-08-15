@@ -1,10 +1,11 @@
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App, Setting, Menu, Component } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Modal, App, Setting, Menu, Component, MarkdownView } from 'obsidian';
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
 import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS } from './settings';
 import { ContextMeter, estimateTokens } from './context-meter';
 import { HistoryTool } from './history';
+import { MentionSuggest } from './mention';
 import { t } from './i18n';
 
 export const VIEW_TYPE_CHAT = 'dsh-obsidian-chat';
@@ -21,6 +22,11 @@ function formatShortTime(ts: number): string {
 
 /** Rough fixed token cost of the vault persona system prompt (built-in rules). */
 const PERSONA_FIXED_TOKENS = 250;
+
+/** Selections up to this many characters are quoted in full. */
+const QUOTE_FULL_LIMIT = 600;
+/** Longer selections are truncated to this many characters. */
+const QUOTE_TRUNCATE_LIMIT = 300;
 
 /**
  * Strip DLEVENT lines emitted by the injected stream-relay plugin from the
@@ -125,7 +131,12 @@ export class ChatView extends ItemView {
   private clearBtn: HTMLButtonElement;
   private modelTrigger: HTMLButtonElement;
   private securityTrigger: HTMLButtonElement;
+  private referenceBtn: HTMLButtonElement;
   private historyBtn: HTMLButtonElement;
+  private mention: MentionSuggest | null = null;
+  /** Last focused markdown view, so its selection can be read even while the
+   *  chat panel has focus. Kept in sync via the active-leaf-change event. */
+  private lastMarkdownView: MarkdownView | null = null;
   private historyPanel: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
   private statusTimer: number | null = null;
@@ -164,6 +175,17 @@ export class ChatView extends ItemView {
     container.style.setProperty('user-select', 'text');
     container.style.setProperty('-webkit-user-select', 'text');
 
+    // Track the last focused markdown view so the reference icon can quote its
+    // selection even after the chat panel itself has taken focus.
+    this.registerEvent(
+      this.app.workspace.on('active-leaf-change', (leaf) => {
+        const view = leaf?.view;
+        if (view instanceof MarkdownView) {
+          this.lastMarkdownView = view;
+        }
+      }),
+    );
+
     // Header
     const header = container.createDiv({ cls: 'dsh-header' });
     const title = header.createDiv({ cls: 'dsh-header-title' });
@@ -179,8 +201,14 @@ export class ChatView extends ItemView {
     this.messagesContainer = container.createDiv({ cls: 'dsh-messages' });
     this.showWelcome();
 
-    // Top toolbar (above the composer): history (right-aligned, minimal icon)
+    // Top toolbar (above the composer): reference (left) + history (right)
     const topToolbar = container.createDiv({ cls: 'dsh-top-toolbar' });
+    this.referenceBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-reference' });
+    setIcon(this.referenceBtn, 'quote');
+    this.referenceBtn.setAttribute('aria-label', t('chat.referenceNote'));
+    this.referenceBtn.setAttribute('title', t('chat.referenceNote'));
+    this.referenceBtn.onclick = () => this.insertActiveNoteReference();
+
     this.historyBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-history' });
     setIcon(this.historyBtn, 'clock');
     this.historyBtn.setAttribute('aria-label', '历史记录');
@@ -193,7 +221,14 @@ export class ChatView extends ItemView {
       cls: 'dsh-input',
       attr: { placeholder: t('chat.placeholder'), rows: '2' },
     });
+    // @mention suggestion (own input/click listeners; only keydown is routed
+    // through here so Enter/send stays in one place).
+    this.mention = new MentionSuggest(this.app, this.inputEl, {
+      getScope: () => this.plugin.settings.workdir,
+      getAnchor: () => this.historyBtn,
+    });
     this.inputEl.addEventListener('keydown', (e) => {
+      if (this.mention?.handleKeydown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         void this.sendMessage();
@@ -316,6 +351,8 @@ export class ChatView extends ItemView {
 
   onClose(): Promise<void> {
     this.closeHistoryPanel();
+    this.mention?.dispose();
+    this.mention = null;
     this.client.dispose();
     if (this.statusTimer !== null) window.clearInterval(this.statusTimer);
     return Promise.resolve();
@@ -336,6 +373,7 @@ export class ChatView extends ItemView {
     }
     // Archive the current session into history, then start a new one.
     void this.plugin.history?.endSession();
+    this.mention?.close();
     this.memory = [];
     this.contextMeter?.reset();
     this.messagesContainer.empty();
@@ -777,6 +815,70 @@ export class ChatView extends ItemView {
     this.inputEl.style.height = 'auto';
     this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 200) + 'px';
     this.scrollToBottom();
+  }
+
+  /**
+   * Insert a reference to the currently active note into the input box at the
+   * cursor. If text is selected in the note, the selection is quoted as a
+   * blockquote (with a source line); otherwise just the wikilink is inserted
+   * (Claudian "new conversation" style: reference the note you are reading
+   * right now, then ask your question around it).
+   */
+  insertActiveNoteReference(): void {
+    // Use a single source of truth for both path and selection: the currently
+    // active markdown view, falling back to the last one we observed (the chat
+    // panel may be the active leaf when the icon is clicked).
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView) ?? this.lastMarkdownView;
+    const file = view?.file ?? this.app.workspace.getActiveFile();
+    if (!file || file.extension !== 'md') {
+      new Notice(t('chat.noActiveNote'));
+      return;
+    }
+    // Vault-relative path without the .md extension, as an Obsidian wikilink.
+    const pathRef = file.path.replace(/\.md$/, '');
+    const ref = this.buildNoteReference(pathRef, view);
+    const el = this.inputEl;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? start;
+    const prefix = el.value.slice(0, start);
+    const suffix = el.value.slice(end);
+    // Keep the reference token separated from surrounding text by one space.
+    const needSpaceBefore = prefix.length > 0 && !/\s$/.test(prefix);
+    const needSpaceAfter = suffix.length > 0 && !/^\s/.test(suffix);
+    const insert = (needSpaceBefore ? ' ' : '') + ref + (needSpaceAfter ? ' ' : '');
+    el.value = prefix + insert + suffix;
+    el.focus();
+    const caret = start + insert.length;
+    el.setSelectionRange(caret, caret);
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    this.scrollToBottom();
+  }
+
+  /**
+   * Build the reference text for the current note. When the markdown editor
+   * has a selection, quote it as a blockquote with a source line (truncated
+   * when too long); otherwise fall back to a bare wikilink.
+   */
+  private buildNoteReference(pathRef: string, view: MarkdownView | null): string {
+    const selection = view ? this.safeGetSelection(view) : '';
+    if (!selection || !selection.trim()) return `[[${pathRef}]]`;
+    let body = selection.trim();
+    if (body.length > QUOTE_FULL_LIMIT) {
+      body = body.slice(0, QUOTE_TRUNCATE_LIMIT) + t('chat.quoteTruncated', { path: pathRef });
+    }
+    // One "> " line per source line, then a source attribution line.
+    const quoted = body.split('\n').map((line) => `> ${line}`).join('\n');
+    return `${quoted}\n> ${t('chat.quoteFrom', { path: pathRef })}`;
+  }
+
+  /** Selection from a markdown view's editor, or '' if unavailable. */
+  private safeGetSelection(view: MarkdownView): string {
+    try {
+      return view.editor.getSelection() ?? '';
+    } catch {
+      return '';
+    }
   }
 
   /** Resume an archived session: re-activate it so new turns append back. */
