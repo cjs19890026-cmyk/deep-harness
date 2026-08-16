@@ -18,7 +18,7 @@ import { NoteCreatorModal } from './modals';
 export const VIEW_TYPE_CHAT = 'dsh-obsidian-chat';
 
 /** Rough fixed token cost of the vault persona system prompt (built-in rules). */
-const PERSONA_FIXED_TOKENS = 250;
+const PERSONA_FIXED_TOKENS = 200;
 
 /** Selections up to this many characters are quoted in full. */
 const QUOTE_FULL_LIMIT = 600;
@@ -351,13 +351,9 @@ export class ChatView extends ItemView {
     const patches = await this.runner.ensureVaultPatch(vaultRoot);
     const skillDirsPatch = this.runner.ensureSkillDirsPatch(vaultRoot);
     const patchPaths = [patches.persona, patches.think, skillDirsPatch].filter((p): p is string => p !== null);
-    // Built-in obsidian skill + long-term memory seed + official CLI detection.
+    // Built-in obsidian skill + long-term memory seed.
     this.runner.ensureObsidianSkill(vaultRoot);
     this.runner.ensureMemoryFile(vaultRoot);
-    const obsidianCli = await this.runner.detectObsidianCli();
-    const obsidianCliDir = obsidianCli
-      ? obsidianCli.substring(0, obsidianCli.lastIndexOf('/'))
-      : undefined;
     // Isolated DSH_HOME with the selected model + reasoning effort;
     // falls back to the user home when it cannot be prepared.
     const pluginHome = this.runner.ensurePluginDshHome(vaultRoot, {
@@ -486,7 +482,6 @@ export class ChatView extends ItemView {
         toolsMode: this.plugin.settings.toolExecutionMode,
         permissionMode: this.plugin.settings.permissionMode,
         patchPath: patchPaths,
-        obsidianCliDir,
         timeoutMs: this.plugin.settings.timeoutSec * 1000,
         signal: this.abortController.signal,
         onStdoutLine: handleStreamLine,
@@ -553,11 +548,11 @@ export class ChatView extends ItemView {
   /** Summarize recent turns into compact bullet lines for context refill. */
   private buildMemorySummary(): string[] {
     if (this.memory.length === 0) return [];
-    const recent = this.memory.slice(-8);
+    const recent = this.memory.slice(-5);
     const lines = ['[对话记忆]'];
     for (const turn of recent) {
-      lines.push(`- 用户: ${turn.user.slice(0, 120)}`);
-      if (turn.assistant) lines.push(`  助手: ${turn.assistant.slice(0, 120)}`);
+      lines.push(`- 用户: ${turn.user.slice(0, 80)}`);
+      if (turn.assistant) lines.push(`  助手: ${turn.assistant.slice(0, 80)}`);
     }
     return [lines.join('\n')];
   }

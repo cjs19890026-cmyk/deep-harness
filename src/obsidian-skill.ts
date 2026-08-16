@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * The built-in "obsidian" DSH skill: vault conventions + the official Obsidian
- * CLI reference. The plugin writes these files into its isolated DSH_HOME
+ * The built-in "obsidian" DSH skill: vault conventions + long-term memory.
+ * The plugin writes these files into its isolated DSH_HOME
  * (<dsh-home>/skills/obsidian/) so the headless agent discovers the skill
  * through `dsh-skill-filesystem` (rank 400 = <dshHome>/skills) with zero
  * changes to the dsh invocation. Files are plugin-owned and regenerated on
@@ -14,7 +14,6 @@ import * as path from 'path';
  * Layout (one-level skill bundle, per dsh-skill-filesystem):
  *
  *   obsidian/SKILL.md                 frontmatter (name/description) + body
- *   obsidian/references/cli.md        curated official-CLI command reference
  *   obsidian/references/conventions.md  frontmatter / wikilink / tag / daily rules
  */
 
@@ -23,31 +22,30 @@ export const MEMORY_FILE = 'Harness/memory.md';
 
 const SKILL_MD = `---
 name: obsidian
-description: Obsidian vault 操作约定与官方 obsidian CLI 用法。当任务涉及笔记读写、frontmatter/Properties、wikilink、tag、日记、反链、模板或批量整理 vault 时使用。
+description: Obsidian vault 操作约定。当任务涉及笔记读写、frontmatter/Properties、wikilink、tag、日记、反链、模板或批量整理 vault 时使用。
 whenToUse: 任务涉及 Obsidian vault 中的笔记、YAML frontmatter / Properties、[[wikilink]]、#tag、日记、反链、模板、批量重命名或库级检索时加载本技能。
 ---
 
 # Obsidian 技能
 
-你是运行在 Obsidian vault 里的助手。这个技能教你在 vault 里「正确地」读写与检索,以及何时用官方 CLI、何时用文件工具。
+你是运行在 Obsidian vault 里的助手。这个技能教你在 vault 里「正确地」读写与检索。
 
 ## 一、核心心智模型
 
 1. vault 就是当前工作目录(即 dsh 会话的 cwd)或它的某个子目录。笔记是带可选 YAML frontmatter 的 Markdown 文件。
-2. **优先使用官方 obsidian CLI**(见 references/cli.md)做 vault 级操作:读、搜索、frontmatter/Properties、tag、日记、反链、模板。它读取的是 Obsidian 运行时的真实索引,比 grep 更准。
-3. **CLI 不可用或只做简单局部编辑时**,回退到文件工具(read/write/edit/glob/grep),自己解析 frontmatter 与 [[wikilink]]。
-4. 约定细节见 references/conventions.md;命令速查见 references/cli.md(相对本技能目录)。
+2. 读写笔记直接用文件工具(read/write/edit/glob/grep),自己解析 frontmatter 与 [[wikilink]]。
+3. 约定细节见 references/conventions.md(相对本技能目录)。
 
 ## 二、安全红线(必须遵守)
 
-- obsidian CLI 走的是运行中的 Obsidian 应用,不受 DSH 文件沙箱约束。**obsidian eval 只用于只读查询**;删除/移动/覆盖必须先向用户说明并征得同意。
+- 删除/移动/覆盖等破坏性操作必须先向用户说明并征得同意。
 - 移动或重命名笔记后,要检查并更新指向它的 [[wikilink]](否则链接会断)。
 - 新建笔记要写 YAML frontmatter,笔记之间用 [[wikilink]] 互链。
 
 ## 三、长期记忆
 
-- 开始任务时先读 vault 根目录的 ${MEMORY_FILE}(用 obsidian read path="${MEMORY_FILE}"),把上次的持久结论带回来。
-- 任务中产生需要跨会话记住的结论(vault 结构、用户偏好、进行中的项目状态)时,立即写回该文件(obsidian append path="${MEMORY_FILE}")。
+- 开始任务时先用文件工具读 vault 根目录的 ${MEMORY_FILE},把上次的持久结论带回来。
+- 任务中产生需要跨会话记住的结论(vault 结构、用户偏好、进行中的项目状态)时,立即写回该文件。
 
 ## 四、图片处理
 
@@ -58,64 +56,6 @@ whenToUse: 任务涉及 Obsidian vault 中的笔记、YAML frontmatter / Propert
 
 - 复杂多步任务可派生子代理(subagent);引用文件用相对路径。
 - 阅读大量文件时,委托搜索型子代理,只保留结论、不回传文件全文。
-`;
-
-const CLI_MD = `# 官方 Obsidian CLI 命令速查
-
-语法:\`obsidian [vault=<name>] <command> [key=value ...] [flags]\`。参数用 key=value,含空格的值加引号,换行用 \\n。**当前工作目录是 vault 时自动操作该 vault**,无需传 vault 参数。
-> 用 \`obsidian help\` 和 \`obsidian <command> --help\` 发现未列出的命令。多数命令可用 \`file=<名称>\`(按 wikilink 语义解析)或 \`path=<vault相对路径>\` 指定文件。
-
-## 读与建
-
-    obsidian read path="folder/note.md"            # 打印笔记原文(不含 .md 会自动补)
-    obsidian read file=Recipe                       # 按文件名解析(等效 wikilink)
-    obsidian create path="folder/note" content="..." # 新建笔记(可用 template=<名> 从模板建)
-    obsidian append path="folder/note.md" content="..."   # 追加到末尾
-    obsidian prepend path="folder/note.md" content="..."  # 追加到 frontmatter 之后
-    obsidian move path="old.md" to="new/folder/note.md"   # 移动/重命名
-    obsidian delete path="folder/note.md"          # 移到回收站(加 permanent 永久删除)
-
-## 列文件
-
-    obsidian files                                  # 列出所有文件
-    obsidian files ext=md                           # 按扩展名过滤
-    obsidian files folder="subfolder"               # 指定文件夹
-    obsidian folders                                # 列出所有文件夹
-    obsidian file path="folder/note.md"             # 文件信息(大小/创建/修改时间)
-
-## 搜索
-
-    obsidian search query="text"                    # 全文检索(返回文件路径)
-    obsidian search query="text" limit=10 format=json
-    obsidian search:context query="text"            # 返回命中行 + 上下文
-    obsidian search:context query="text" path="folder" case
-
-## frontmatter / Properties
-
-    obsidian properties path="note.md"              # 读全部属性
-    obsidian property:read path="note.md" name="status"
-    obsidian property:set path="note.md" name="status" value="done"
-
-## 标签 / 日记 / 任务
-
-    obsidian tags                                   # 列出标签
-    obsidian tags counts                            # 标签 + 计数
-    obsidian daily                                  # 打开今天的日记(不存在则创建)
-    obsidian daily:read                             # 打印今天的日记
-    obsidian daily:append content="..."             # 追加到今天的日记
-    obsidian daily:path                             # 打印今天日记的 vault 相对路径
-    obsidian tasks daily                            # 列出日记里的任务
-
-## 只读 eval(万能查询,仅只读)
-
-    obsidian eval code="app.vault.getMarkdownFiles().length"
-    obsidian eval code="JSON.stringify(app.metadataCache.getBacklinksForFile(app.vault.getFileByPath('Harness/memory.md')).map(f=>f.path))"
-
-## 其他
-
-    obsidian version                                # Obsidian 版本
-    obsidian diff file=README from=1 to=3           # 对比文件版本
-    obsidian reload                                 # 重载应用窗口
 `;
 
 const CONVENTIONS_MD = `# Obsidian vault 约定
@@ -161,8 +101,8 @@ const CONVENTIONS_MD = `# Obsidian vault 约定
 
 ## 日记与模板
 
-- 日记路径/格式由 Obsidian 的 Daily Notes 插件决定,用 \`obsidian daily:path\` 取,别猜路径。
-- 模板用 \`obsidian create template=<名>\`,模板目录通常在 Templates 文件夹(以实际设置为准)。
+- 日记路径/格式由 Obsidian 的 Daily Notes 插件决定,用 glob 找日记目录,别猜路径。
+- 模板通常在 Templates 文件夹(以实际设置为准)。
 
 ## 附件
 
@@ -204,7 +144,6 @@ export function ensureObsidianSkill(skillRoot: string): SkillWriteResult | null 
 
   const files: Array<[string, string]> = [
     ['SKILL.md', SKILL_MD],
-    [path.join('references', 'cli.md'), CLI_MD],
     [path.join('references', 'conventions.md'), CONVENTIONS_MD],
   ];
 

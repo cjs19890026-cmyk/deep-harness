@@ -29,9 +29,6 @@ export interface DshRunOptions {
   permissionMode?: string;
   /** Path(s) to generated `--patch` overlays (repeatable). */
   patchPath?: string | string[];
-  /** Directory containing the official `obsidian` CLI, prepended to PATH so
-   *  the agent's bash tool can invoke it (Obsidian 1.12+). */
-  obsidianCliDir?: string;
   /** Kill the process after this many ms. 0 = no timeout. */
   timeoutMs?: number;
   /** Line-by-line stdout callback (used by the Phase-2 stream relay). */
@@ -104,11 +101,6 @@ export class DshClient {
         const nodeDir = opts.nodeBin.substring(0, opts.nodeBin.lastIndexOf('/'));
         env.PATH = [nodeDir, env.PATH || '/usr/bin:/bin'].join(':');
       }
-      // Make the official Obsidian CLI discoverable by the agent's bash tool.
-      if (opts.obsidianCliDir) {
-        env.PATH = [opts.obsidianCliDir, env.PATH || '/usr/bin:/bin'].join(':');
-      }
-
       const startedAt = Date.now();
       let stdout = '';
       let stderr = '';

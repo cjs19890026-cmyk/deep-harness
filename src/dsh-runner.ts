@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { versionCmp } from './pure';
 import type { DshDiagnostics } from './dsh-client';
 import type { DshSettings } from './settings';
-import { ensureObsidianSkill, MEMORY_FILE } from './obsidian-skill';
+import { ensureObsidianSkill as writeObsidianSkill, MEMORY_FILE } from './obsidian-skill';
 
 const execFileAsync = promisify(execFile);
 
@@ -37,21 +37,8 @@ const COMMON_NODE_CANDIDATES = [
   '/usr/bin/node',
 ];
 
-/**
- * Common install locations for the official Obsidian CLI (`obsidian`).
- * Obsidian 1.12+ registers the CLI through its installer ("Settings → General
- * → Command line interface"); on macOS it usually lands in /usr/local/bin or
- * ~/.local/bin. The plugin probes these as a fallback when it isn't on PATH.
- */
-const COMMON_OBSIDIAN_CLI_CANDIDATES = [
-  '/opt/homebrew/bin/obsidian',
-  '/usr/local/bin/obsidian',
-  '/usr/bin/obsidian',
-  path.join(os.homedir(), '.local', 'bin', 'obsidian'),
-];
-
 /** Bump to force regeneration of the generated persona patch (see migration). */
-const PERSONA_VERSION = 3;
+const PERSONA_VERSION = 4;
 const PERSONA_MARKER = `# dsh-obsidian-persona-v${PERSONA_VERSION}`;
 
 /**
@@ -348,15 +335,15 @@ export class DshRunner {
     } catch {
       return null;
     }
-    const res = ensureObsidianSkill(skillRoot);
+    const res = writeObsidianSkill(skillRoot);
     return res ? res.dir : null;
   }
 
   /**
    * Seed the long-term memory file at the vault root (Harness/memory.md) so
-   * the agent always finds it. The official CLI addresses it vault-relative
-   * (`obsidian read/append path="Harness/memory.md"`), which keeps it
-   * reachable even when the sandbox workdir is a vault subfolder.
+   * the agent always finds it. The file lives at the vault root (a stable
+   * vault-relative path), so it stays reachable even when the sandbox workdir
+   * is a vault subfolder.
    */
   ensureMemoryFile(vaultRoot: string): string | null {
     const file = path.join(vaultRoot, MEMORY_FILE);
@@ -424,34 +411,6 @@ export class DshRunner {
     } catch {
       return null;
     }
-  }
-
-  /** Resolve the official Obsidian CLI path (explicit setting or null). */
-  obsidianCliBin(): string | null {
-    const explicit = this.settings.obsidianCli.trim();
-    return explicit ? explicit : null;
-  }
-
-  /**
-   * Detect the official Obsidian CLI (`obsidian`). Order: explicit setting >
-   * PATH > common install locations. Returns the binary path, or null when
-   * unavailable (Obsidian <1.12, or the CLI not enabled/registered in
-   * Obsidian's Settings → General → Command line interface).
-   */
-  async detectObsidianCli(): Promise<string | null> {
-    const explicit = this.obsidianCliBin();
-    if (explicit && (await this.exists(explicit))) return explicit;
-    try {
-      const { stdout } = await execFileAsync('which', ['obsidian'], { timeout: 5000 });
-      const p = stdout.trim();
-      if (p && (await this.exists(p))) return p;
-    } catch {
-      // not in PATH
-    }
-    for (const candidate of COMMON_OBSIDIAN_CLI_CANDIDATES) {
-      if (await this.exists(candidate)) return candidate;
-    }
-    return null;
   }
 
   /**
@@ -523,18 +482,9 @@ export class DshRunner {
   /** Default persona body (v3): Claudian-style Obsidian expert + L1 rules. */
   private buildPersonaLines(): string[] {
     const lines = [
-      '你是 Claudian 风格的 Obsidian 专家助手,专精 vault 管理、知识组织与代码分析,直接在用户的 Obsidian vault 内工作。',
-      '你的工作目录 {{cwd}} 就是 vault(或其子目录)。',
-      '价值观:安全第一(不理解上下文绝不覆盖数据)、主动思考(先计划后验证,主动预判断链/缺失文件)、精准克制(改动精确、最小噪音)。',
-      '路径规则:vault 内文件一律用相对 vault 根的相对路径(前导 / 或绝对路径会失败);写 vault 外的文件必须先征得同意并切换到「完全访问」。',
-      '工具规范:编辑任何文件前先读它;edit 的 old_string 必须与文件内容逐字符一致,失败就重读核对;文件操作用文件工具,bash 只用于文件工具做不到的事;两步及以上的任务用 todo 列表追踪进度。',
-      '安全工作流:上下文(信息够不够)→ 影响(会不会断链/影响其他文件)→ 计划(多步列 todo)→ 执行(最小改动)→ 验证(frontmatter、Dataview、链接是否完好)。',
-      '回复规范:提到 vault 里的文件时用 [[wikilink]](可点击),展示图片用 ![[图片.png]] 嵌入,不要用裸路径。',
-      'Obsidian 语法:Markdown + YAML frontmatter(尊重并保留已有字段)、[[wikilink]]、#tag、![[嵌入]]、> [!note] callout;```dataview 查询块视为只读,不要破坏。',
-      '涉及笔记/frontmatter/wikilink/标签/日记/反链/模板等 vault 操作时,先用 skill 工具加载 obsidian 技能,再按其中的约定与命令执行。',
-      '优先使用官方 obsidian CLI(若可用)做 vault 级操作(读、搜索、frontmatter、标签、日记、反链);CLI 不可用时降级为文件工具。',
-      '长期记忆:任务开始时先读 vault 根目录的 Harness/memory.md 带回上次结论;产生需要跨会话记住的结论(vault 结构、用户偏好、进行中的项目)时写回该文件。',
-      'obsidian CLI 不受 DSH 文件沙箱约束:obsidian eval 仅用于只读查询;删除/移动/覆盖仍需先征得同意。',
+      '你是运行在 Obsidian vault 里的专家助手,直接操作用户的 vault(工作目录 {{cwd}},即 vault 或其子目录)。',
+      '破坏性操作(删除/移动/覆盖)前必须先向用户说明并征得同意;编辑任何文件前先读它。',
+      '涉及笔记/frontmatter/wikilink/标签/日记/反链/模板等 vault 操作时,先用 skill 加载 obsidian 技能并遵守其中约定;开始任务前先读 Harness/memory.md 带回长期结论,结束时写回。',
     ];
     if (this.settings.customPersona.trim()) {
       lines.push('', '附加用户指令:', this.settings.customPersona.trim());
