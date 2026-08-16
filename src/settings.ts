@@ -30,6 +30,8 @@ export interface DshSettings {
   obsidianSkill: boolean;
   /** Explicit path to the official Obsidian CLI (`obsidian`); empty = auto. */
   obsidianCli: string;
+  /** Comma-separated vault-relative extra skill dirs (scanned + passed to DSH). */
+  extraSkillDirs: string;
 }
 
 export const DEFAULT_SETTINGS: DshSettings = {
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: DshSettings = {
   historyLimit: 50,
   obsidianSkill: true,
   obsidianCli: '',
+  extraSkillDirs: 'Library/Skills, .claude/skills',
 };
 
 export const MODEL_OPTIONS = [
@@ -284,6 +287,18 @@ export class DshSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.obsidianCli)
         .onChange(async (value) => {
           this.plugin.settings.obsidianCli = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // Extra skill directories (scanned by the skills button + passed to DSH)
+    new Setting(containerEl)
+      .setName(t('settings.extraSkillDirs.name'))
+      .setDesc(t('settings.extraSkillDirs.desc'))
+      .addText((text) => text
+        .setPlaceholder(t('settings.extraSkillDirs.placeholder'))
+        .setValue(this.plugin.settings.extraSkillDirs)
+        .onChange(async (value) => {
+          this.plugin.settings.extraSkillDirs = value;
           await this.plugin.saveSettings();
         }));
 

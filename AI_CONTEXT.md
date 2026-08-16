@@ -25,6 +25,8 @@ src/mention.ts       @ 提及:输入框 @ 弹 vault 笔记列表,选中生成 [[
 src/modals.ts        独立 Modal 组件(NoteCreator / SecurityConfirm 等,自 chat-view 抽出)
 src/linkify.ts       回答自动出链:笔记标题/别名/路径 → [[wikilink]](纯函数,可单测)
 src/linkify.test.ts  vitest 单测(链接/别名/重名消歧/代码块与既有链接不误链)
+src/skills.ts        技能目录扫描(纯函数 + node fs):解析 SKILL.md frontmatter、kebab-case 校验、按源优先级去重
+src/skills.test.ts   vitest 单测(frontmatter 解析/校验/去重/扫描)
 src/pure.ts          无 Obsidian 依赖的纯函数(可单测,如 parseHeadlessOutput / 错误分类)
 src/pure.test.ts     vitest 单元测试
 src/settings.ts      设置项 + 设置页 UI

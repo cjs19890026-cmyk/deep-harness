@@ -1,8 +1,11 @@
+import * as path from 'path';
 import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Menu, Component, MarkdownView, Keymap } from 'obsidian';
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
 import { buildTitleEntries, linkifyNoteTitles, type NoteInfo } from './linkify';
+import { scanSkillRoots, type SkillEntry, type ScanRoot } from './skills';
+import { SkillSuggest } from './skill-suggest';
 import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS } from './settings';
 import { ContextMeter, estimateTokens } from './context-meter';
 import { parseHeadlessOutput, errorHint, contextWindowFor } from './pure';
@@ -38,12 +41,15 @@ export class ChatView extends ItemView {
   private modelTrigger!: HTMLButtonElement;
   private securityTrigger!: HTMLButtonElement;
   private referenceBtn!: HTMLButtonElement;
+  private skillBtn!: HTMLButtonElement;
   private historyBtn!: HTMLButtonElement;
   private mention: MentionSuggest | null = null;
   /** Last focused markdown view, so its selection can be read even while the
    *  chat panel has focus. Kept in sync via the active-leaf-change event. */
   private lastMarkdownView: MarkdownView | null = null;
   private historyPanel: HTMLElement | null = null;
+  private skillPanel: HTMLElement | null = null;
+  private skillSuggest: SkillSuggest | null = null;
   private statusEl: HTMLElement | null = null;
   private statusTimer: number | null = null;
   private statusStartedAt = 0;
@@ -116,6 +122,12 @@ export class ChatView extends ItemView {
     this.referenceBtn.setAttribute('title', t('chat.referenceNote'));
     this.referenceBtn.onclick = () => this.insertActiveNoteReference();
 
+    this.skillBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-skill' });
+    setIcon(this.skillBtn, 'wrench');
+    this.skillBtn.setAttribute('aria-label', t('chat.skillButton'));
+    this.skillBtn.setAttribute('title', t('chat.skillButton'));
+    this.skillBtn.onclick = () => this.toggleSkillPanel();
+
     this.historyBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-history' });
     setIcon(this.historyBtn, 'clock');
     this.historyBtn.setAttribute('aria-label', '历史记录');
@@ -134,7 +146,13 @@ export class ChatView extends ItemView {
       getScope: () => this.plugin.settings.workdir,
       getAnchor: () => this.historyBtn,
     });
+    // /skill completion: same popup pattern, anchored to the skill button.
+    this.skillSuggest = new SkillSuggest(this.app, this.inputEl, {
+      getSkills: () => this.scanSkills(),
+      getAnchor: () => this.skillBtn,
+    });
     this.inputEl.addEventListener('keydown', (e) => {
+      if (this.skillSuggest?.handleKeydown(e)) return;
       if (this.mention?.handleKeydown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -247,8 +265,11 @@ export class ChatView extends ItemView {
 
   onClose(): Promise<void> {
     this.closeHistoryPanel();
+    this.closeSkillPanel();
     this.mention?.dispose();
     this.mention = null;
+    this.skillSuggest?.dispose();
+    this.skillSuggest = null;
     this.client.dispose();
     if (this.statusTimer !== null) window.clearInterval(this.statusTimer);
     this.settingsUnsub?.();
@@ -272,6 +293,7 @@ export class ChatView extends ItemView {
     // Archive the current session into history, then start a new one.
     void this.plugin.history?.endSession();
     this.mention?.close();
+    this.skillSuggest?.close();
     this.memory = [];
     this.contextMeter?.reset();
     this.messagesContainer.empty();
@@ -324,7 +346,8 @@ export class ChatView extends ItemView {
       this.contextMeter.addTokens(PERSONA_FIXED_TOKENS + estimateTokens(task));
     }
     const patches = await this.runner.ensureVaultPatch(vaultRoot);
-    const patchPaths = [patches.persona, patches.think].filter((p): p is string => p !== null);
+    const skillDirsPatch = this.runner.ensureSkillDirsPatch(vaultRoot);
+    const patchPaths = [patches.persona, patches.think, skillDirsPatch].filter((p): p is string => p !== null);
     // Built-in obsidian skill + long-term memory seed + official CLI detection.
     this.runner.ensureObsidianSkill(vaultRoot);
     this.runner.ensureMemoryFile(vaultRoot);
@@ -811,22 +834,26 @@ export class ChatView extends ItemView {
     // Vault-relative path without the .md extension, as an Obsidian wikilink.
     const pathRef = file.path.replace(/\.md$/, '');
     const ref = this.buildNoteReference(pathRef, view);
+    this.insertTextAtCursor(ref);
+    this.scrollToBottom();
+  }
+
+  /** Insert text at the caret with one-space separation from neighbours. */
+  private insertTextAtCursor(text: string): void {
     const el = this.inputEl;
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? start;
     const prefix = el.value.slice(0, start);
     const suffix = el.value.slice(end);
-    // Keep the reference token separated from surrounding text by one space.
     const needSpaceBefore = prefix.length > 0 && !/\s$/.test(prefix);
     const needSpaceAfter = suffix.length > 0 && !/^\s/.test(suffix);
-    const insert = (needSpaceBefore ? ' ' : '') + ref + (needSpaceAfter ? ' ' : '');
+    const insert = (needSpaceBefore ? ' ' : '') + text + (needSpaceAfter ? ' ' : '');
     el.value = prefix + insert + suffix;
     el.focus();
     const caret = start + insert.length;
     el.setSelectionRange(caret, caret);
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 200) + 'px';
-    this.scrollToBottom();
   }
 
   /**
@@ -890,6 +917,7 @@ export class ChatView extends ItemView {
 
   private openHistoryPanel(): void {
     this.closeHistoryPanel();
+    this.closeSkillPanel();
     const panel = createDiv({ cls: 'dsh-history-panel' });
     this.historyPanel = panel;
 
@@ -957,9 +985,9 @@ export class ChatView extends ItemView {
     panel.style.bottom = `${window.innerHeight - rect.top + 4}px`;
 
     setTimeout(() => {
-      document.addEventListener('mousedown', this.onHistoryOutside);
+      document.addEventListener('mousedown', this.onPanelOutside);
     }, 0);
-    document.addEventListener('keydown', this.onHistoryKeydown);
+    document.addEventListener('keydown', this.onPanelKeydown);
   }
 
   /** Inline rename of a session title inside the panel. */
@@ -1006,19 +1034,102 @@ export class ChatView extends ItemView {
       this.historyPanel.remove();
       this.historyPanel = null;
     }
-    document.removeEventListener('mousedown', this.onHistoryOutside);
-    document.removeEventListener('keydown', this.onHistoryKeydown);
+    document.removeEventListener('mousedown', this.onPanelOutside);
+    document.removeEventListener('keydown', this.onPanelKeydown);
   }
 
-  private onHistoryOutside = (e: MouseEvent): void => {
+  private onPanelOutside = (e: MouseEvent): void => {
     if (this.historyPanel && !this.historyPanel.contains(e.target as Node)) {
       this.closeHistoryPanel();
     }
-  };
-
-  private onHistoryKeydown = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      this.closeHistoryPanel();
+    if (this.skillPanel && !this.skillPanel.contains(e.target as Node)) {
+      this.closeSkillPanel();
     }
   };
+
+  private onPanelKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this.closeHistoryPanel();
+      this.closeSkillPanel();
+    }
+  };
+
+  // ── Skill panel (floating, anchored to the toolbar icon) ─────────
+
+  private toggleSkillPanel(): void {
+    if (this.skillPanel) {
+      this.closeSkillPanel();
+      return;
+    }
+    this.openSkillPanel();
+  }
+
+  private openSkillPanel(): void {
+    this.closeHistoryPanel();
+    this.closeSkillPanel();
+    const panel = createDiv({ cls: 'dsh-history-panel dsh-skill-panel' });
+    this.skillPanel = panel;
+
+    const skills = this.scanSkills();
+    if (skills.length === 0) {
+      panel.createDiv({ cls: 'dsh-history-empty', text: t('chat.skillEmpty') });
+    } else {
+      for (const s of skills) {
+        const item = panel.createDiv({ cls: 'dsh-skill-item' });
+        const row1 = item.createDiv({ cls: 'dsh-skill-row1' });
+        row1.createSpan({ cls: 'dsh-skill-name', text: s.name });
+        row1.createSpan({ cls: 'dsh-skill-badge', text: this.skillSourceLabel(s.source) });
+        item.createDiv({ cls: 'dsh-skill-desc', text: s.description });
+        item.onclick = () => {
+          this.closeSkillPanel();
+          this.insertTextAtCursor(`/${s.name} `);
+          this.scrollToBottom();
+        };
+      }
+    }
+
+    document.body.appendChild(panel);
+
+    // Anchor: same geometry as the history panel.
+    const rect = this.skillBtn.getBoundingClientRect();
+    panel.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
+    panel.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+
+    setTimeout(() => {
+      document.addEventListener('mousedown', this.onPanelOutside);
+    }, 0);
+    document.addEventListener('keydown', this.onPanelKeydown);
+  }
+
+  private closeSkillPanel(): void {
+    if (this.skillPanel) {
+      this.skillPanel.remove();
+      this.skillPanel = null;
+    }
+    document.removeEventListener('mousedown', this.onPanelOutside);
+    document.removeEventListener('keydown', this.onPanelKeydown);
+  }
+
+  private skillSourceLabel(source: SkillEntry['source']): string {
+    switch (source) {
+      case 'project': return t('chat.skillSourceProject');
+      case 'extra': return t('chat.skillSourceExtra');
+      case 'plugin': return t('chat.skillSourcePlugin');
+    }
+  }
+
+  /** Roots mirroring DSH discovery + user-configured extra directories. */
+  private scanSkills(): SkillEntry[] {
+    const vaultRoot = this.plugin.getVaultRoot();
+    const roots: ScanRoot[] = [
+      { dir: path.join(vaultRoot, '.dsh', 'skills'), source: 'project' },
+      { dir: path.join(vaultRoot, '.agents', 'skills'), source: 'project' },
+      { dir: path.join(this.runner.pluginHomeDir(vaultRoot), 'skills'), source: 'plugin' },
+    ];
+    for (const rel of this.plugin.settings.extraSkillDirs.split(',')) {
+      const t = rel.trim();
+      if (t) roots.push({ dir: path.resolve(vaultRoot, t), source: 'extra' });
+    }
+    return scanSkillRoots(roots);
+  }
 }

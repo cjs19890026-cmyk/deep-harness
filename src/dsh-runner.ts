@@ -384,6 +384,48 @@ export class DshRunner {
     }
   }
 
+  /**
+   * Generate the skill-dirs patch that registers user-configured extra skill
+   * directories (settings.extraSkillDirs, e.g. Library/Skills or .claude/skills)
+   * with dsh-skill-filesystem's `customSkillDirs`, so `/name` invocation sees
+   * them. Regenerated on every run, like the stream-relay patch.
+   *
+   * Returns the patch path, or null when there is nothing to register.
+   */
+  ensureSkillDirsPatch(vaultRoot: string): string | null {
+    const dirs: string[] = [];
+    for (const rel of this.settings.extraSkillDirs.split(',')) {
+      const t = rel.trim();
+      if (!t) continue;
+      const abs = path.resolve(vaultRoot, t);
+      try {
+        if (fs.statSync(abs).isDirectory()) dirs.push(abs);
+      } catch {
+        // missing dir: skip (valid empty state)
+      }
+    }
+    if (dirs.length === 0) return null;
+    const dir = path.join(vaultRoot, '.obsidian', 'plugins', 'dsh-obsidian', 'generated');
+    const file = path.join(dir, 'skill-dirs.yml');
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.chmodSync(dir, 0o755);
+      const yml = [
+        '# 由 dsh-obsidian 生成。把附加技能目录注册给 DSH 的 skill-filesystem',
+        '# (customSkillDirs),使 /技能名 斜杠调用能发现这些目录里的 skill。',
+        '- id: skill-filesystem',
+        '  config:',
+        '    customSkillDirs:',
+        ...dirs.map((d) => `      - ${JSON.stringify(d)}`),
+        '',
+      ].join('\n');
+      fs.writeFileSync(file, yml, 'utf8');
+      return file;
+    } catch {
+      return null;
+    }
+  }
+
   /** Resolve the official Obsidian CLI path (explicit setting or null). */
   obsidianCliBin(): string | null {
     const explicit = this.settings.obsidianCli.trim();

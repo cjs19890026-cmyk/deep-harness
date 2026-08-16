@@ -1151,3 +1151,72 @@
 .dsh-history-rename-input:focus {
   outline: none;
 }
+
+/* ── Skill floating panel (same shell as the history panel) ── */
+.dsh-skill-panel {
+  width: 340px;
+}
+
+.dsh-skill-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.dsh-skill-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.dsh-skill-row1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dsh-skill-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dsh-skill-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-faint);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0 4px;
+}
+
+.dsh-skill-desc {
+  padding-left: 20px;
+  font-size: 10px;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* /skill completion rows (reuse the mention popup shell) */
+.dsh-skill-suggest-desc {
+  flex: 1;
+  min-width: 0;
+  margin-left: auto;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
