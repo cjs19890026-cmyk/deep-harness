@@ -89,6 +89,27 @@ export class MentionSuggest {
     return false;
   }
 
+  /**
+   * Programmatic trigger (toolbar @ button): insert "@" at the caret when not
+   * already inside a mention token, then open the suggestion popup — identical
+   * to typing "@" in the composer.
+   */
+  trigger(): void {
+    const el = this.inputEl;
+    const pos = el.selectionStart ?? el.value.length;
+    const before = el.value.slice(0, pos);
+    const inToken = /(?:^|\s)@([^\s@]*)$/.test(before);
+    if (!inToken) {
+      el.value = before + '@' + el.value.slice(pos);
+      el.setSelectionRange(pos + 1, pos + 1);
+      // Programmatic value changes don't fire 'input'; dispatch so the
+      // composer re-sizes (and our handler re-parses — now in a token).
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    el.focus();
+    this.handleInput();
+  }
+
   // ── parsing & filtering ──────────────────────────────
 
   private handleInput(): void {

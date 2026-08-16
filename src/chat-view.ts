@@ -41,6 +41,7 @@ export class ChatView extends ItemView {
   private modelTrigger!: HTMLButtonElement;
   private securityTrigger!: HTMLButtonElement;
   private referenceBtn!: HTMLButtonElement;
+  private mentionBtn!: HTMLButtonElement;
   private skillBtn!: HTMLButtonElement;
   private historyBtn!: HTMLButtonElement;
   private mention: MentionSuggest | null = null;
@@ -116,11 +117,18 @@ export class ChatView extends ItemView {
 
     // Top toolbar (above the composer): reference (left) + history (right)
     const topToolbar = container.createDiv({ cls: 'dsh-top-toolbar' });
-    this.referenceBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-reference' });
-    setIcon(this.referenceBtn, 'quote');
+    this.referenceBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-reference', text: '<' });
     this.referenceBtn.setAttribute('aria-label', t('chat.referenceNote'));
     this.referenceBtn.setAttribute('title', t('chat.referenceNote'));
     this.referenceBtn.onclick = () => this.insertActiveNoteReference();
+
+    // @mention trigger: same as typing "@" in the input box (opens the note
+    // suggestion popup). Sits to the left of the skills (wrench) button.
+    this.mentionBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-mention' });
+    setIcon(this.mentionBtn, 'at-sign');
+    this.mentionBtn.setAttribute('aria-label', t('chat.mentionButton'));
+    this.mentionBtn.setAttribute('title', t('chat.mentionButton'));
+    this.mentionBtn.onclick = () => this.mention?.trigger();
 
     this.skillBtn = topToolbar.createEl('button', { cls: 'dsh-top-btn dsh-top-skill' });
     setIcon(this.skillBtn, 'wrench');

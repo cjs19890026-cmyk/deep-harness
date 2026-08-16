@@ -547,6 +547,14 @@
   height: 13px;
 }
 
+/* Text-symbol variant (the reference button uses "<" instead of an icon). */
+.dsh-top-btn.dsh-top-reference {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+}
+
 .dsh-top-btn:hover {
   color: var(--text-normal);
   background: var(--background-modifier-hover);
