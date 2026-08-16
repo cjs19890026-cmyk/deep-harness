@@ -65,6 +65,7 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 - 🧭 **内置 `obsidian` DSH skill**:agent 自动获得 Obsidian 约定 + 官方 CLI 速查,涉及 vault 操作时优先加载(可在设置关闭;用户可用 `<vault>/.dsh/skills/obsidian/` 覆盖)
 - 🖥 **官方 Obsidian CLI 接入**(Obsidian 1.12+,设置→通用→命令行界面):agent 用真实索引做读/搜索/frontmatter/标签/日记/反链,比裸 grep 更准;缺失时自动降级为文件工具
 - 🧠 **长期记忆** `Harness/memory.md`:agent 每轮先读、跨会话结论写回
+- 🔗 **回答自动出链**:AI 回答里提到的笔记标题/别名/路径(即使没写 `[[]]`)渲染时自动包成可点击的内部链接;代码块、已有链接、URL 等不会误链
 - 🌐 界面 i18n(en / 中文)
 
 ## 设置项

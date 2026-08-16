@@ -1,7 +1,8 @@
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Menu, Component, MarkdownView } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Menu, Component, MarkdownView, Keymap } from 'obsidian';
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
+import { buildTitleEntries, linkifyNoteTitles, type NoteInfo } from './linkify';
 import { MODEL_OPTIONS, REASONING_OPTIONS, PERMISSION_OPTIONS } from './settings';
 import { ContextMeter, estimateTokens } from './context-meter';
 import { parseHeadlessOutput, errorHint, contextWindowFor } from './pure';
@@ -612,12 +613,45 @@ export class ChatView extends ItemView {
       if (tools && tools.length > 0) {
         this.renderToolsBlock(contentEl, tools);
       }
-      void MarkdownRenderer.render(this.app, content, contentEl, '', this);
+      // Auto-link note titles mentioned in the answer (keeps the raw text
+      // untouched for copy / save-as-note).
+      const rendered = isSystem ? content : this.linkifyAnswer(content);
+      this.renderMarkdownWithLinks(rendered, contentEl);
       if (!isSystem) this.addMessageActions(el, content);
     } else {
       contentEl.setText(content);
     }
     this.scrollToBottom();
+  }
+
+  /**
+   * Wrap vault note titles / aliases / paths mentioned in an answer into
+   * [[wikilinks]] so they become clickable, without touching the raw text
+   * (copy / save-as-note keep the original answer).
+   */
+  private linkifyAnswer(text: string): string {
+    const files = this.app.vault.getMarkdownFiles();
+    const notes: NoteInfo[] = files.map((f) => {
+      let aliases: string[] = [];
+      try {
+        const fm = this.app.metadataCache.getFileCache(f)?.frontmatter as
+          | { aliases?: unknown }
+          | undefined;
+        const raw = fm?.aliases;
+        if (Array.isArray(raw)) aliases = raw.map(String);
+        else if (typeof raw === 'string') {
+          aliases = raw.split(',').map((s) => s.trim()).filter(Boolean);
+        }
+      } catch {
+        // metadata read failure: link by title only
+      }
+      return {
+        name: f.basename,
+        path: f.path.replace(/\.md$/, ''),
+        aliases,
+      };
+    });
+    return linkifyNoteTitles(text, buildTitleEntries(notes));
   }
 
   /** Collapsible "思考过程" block (default collapsed, plain text). */
@@ -694,10 +728,36 @@ export class ChatView extends ItemView {
       }
     }
     if (answer) {
-      void MarkdownRenderer.render(this.app, answer, contentEl, '', this);
+      // Linkify for display; the raw answer stays for copy / save-as-note.
+      this.renderMarkdownWithLinks(this.linkifyAnswer(answer), contentEl);
       this.addMessageActions(respEl, answer);
     }
     this.scrollToBottom();
+  }
+
+  /**
+   * Render markdown into the message and wire internal-link clicks.
+   *
+   * Obsidian only attaches click navigation to [[wikilinks]] inside real
+   * markdown preview views — links rendered into a custom ItemView get the
+   * correct HTML (hover preview works) but clicking does nothing. Attach the
+   * navigation manually after the async render completes.
+   */
+  private renderMarkdownWithLinks(markdown: string, contentEl: HTMLElement): void {
+    void MarkdownRenderer.render(this.app, markdown, contentEl, '', this).then(() => {
+      for (const a of Array.from(contentEl.querySelectorAll<HTMLAnchorElement>('a.internal-link'))) {
+        const el = a as HTMLAnchorElement & { __dshLinkWired?: boolean };
+        if (el.__dshLinkWired) continue;
+        el.__dshLinkWired = true;
+        el.addEventListener('click', (evt: MouseEvent) => {
+          evt.preventDefault();
+          const linktext = el.getAttribute('data-href') ?? el.getAttribute('href');
+          if (linktext) {
+            void this.app.workspace.openLinkText(linktext, '', Keymap.isModEvent(evt));
+          }
+        });
+      }
+    });
   }
 
   private addMessageActions(messageEl: HTMLElement, content: string): void {

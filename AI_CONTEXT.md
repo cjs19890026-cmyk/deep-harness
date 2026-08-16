@@ -23,6 +23,8 @@ src/history.ts       会话历史:原子落盘、置顶/重命名/备注/恢复
 src/context-meter.ts 上下文用量环(按模型各自的上下文窗口估算)
 src/mention.ts       @ 提及:输入框 @ 弹 vault 笔记列表,选中生成 [[wikilink]]
 src/modals.ts        独立 Modal 组件(NoteCreator / SecurityConfirm 等,自 chat-view 抽出)
+src/linkify.ts       回答自动出链:笔记标题/别名/路径 → [[wikilink]](纯函数,可单测)
+src/linkify.test.ts  vitest 单测(链接/别名/重名消歧/代码块与既有链接不误链)
 src/pure.ts          无 Obsidian 依赖的纯函数(可单测,如 parseHeadlessOutput / 错误分类)
 src/pure.test.ts     vitest 单元测试
 src/settings.ts      设置项 + 设置页 UI
