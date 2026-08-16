@@ -70,6 +70,7 @@ After enabling the plugin, click the bot icon in the left ribbon to open the cha
 | dsh binary path | auto-detect | Empty = PATH |
 | Node.js path | auto-detect | The plugin runs the dsh script with node directly (bypasses the shebang issue under Obsidian's restricted PATH) |
 | DSH_HOME | `~/.dsh` | Credentials/config root |
+| Plugin API key | empty | DeepSeek API key used ONLY by this plugin (separate from the desktop app); empty = reuse desktop credentials |
 | Working directory | vault root | Relative subfolder to scope the agent |
 | Task timeout | 600s | Auto-stops the run when exceeded |
 | Conversation memory | on | Context refill |
@@ -85,7 +86,7 @@ After enabling the plugin, click the bot icon in the left ribbon to open the cha
 ## Security
 
 - The agent's file tools are scoped to the vault; **however the bash tool runs with user-level permissions** (headless has no file sandbox by default), so the persona rules require the agent not to modify files outside the vault and to ask before destructive operations
-- The plugin never collects API keys — all credentials go through existing DSH configuration
+- Credentials go through existing DSH configuration by default (the plugin collects nothing); optionally you can set a plugin-only API key, which is stored in the local plugin data file and injected as an environment variable at run time — never shared with the desktop app
 - All child processes are terminated when the plugin unloads
 
 ## Roadmap

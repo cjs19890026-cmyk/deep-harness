@@ -30,6 +30,8 @@ export interface DshSettings {
   obsidianSkill: boolean;
   /** Comma-separated vault-relative extra skill dirs (scanned + passed to DSH). */
   extraSkillDirs: string;
+  /** Plugin-only DeepSeek API key; empty = reuse the desktop DSH credentials. */
+  apiKey: string;
 }
 
 export const DEFAULT_SETTINGS: DshSettings = {
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: DshSettings = {
   historyLimit: 50,
   obsidianSkill: true,
   extraSkillDirs: 'Library/Skills, .claude/skills',
+  apiKey: '',
 };
 
 export const MODEL_OPTIONS = [
@@ -138,6 +141,22 @@ export class DshSettingTab extends PluginSettingTab {
           this.plugin.settings.dshHome = value;
           await this.plugin.saveSettings();
         }));
+
+    // Plugin-only API key (masked)
+    new Setting(containerEl)
+      .setName(t('settings.apiKey.name'))
+      .setDesc(t('settings.apiKey.desc'))
+      .addText((text) => {
+        text
+          .setPlaceholder(t('settings.apiKey.placeholder'))
+          .setValue(this.plugin.settings.apiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.apiKey = value.trim();
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.type = 'password';
+        text.inputEl.autocomplete = 'off';
+      });
 
     // Workdir
     new Setting(containerEl)

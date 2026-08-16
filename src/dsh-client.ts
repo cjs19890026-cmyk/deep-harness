@@ -23,6 +23,11 @@ export interface DshRunOptions {
   cwd: string;
   /** DSH_HOME (credentials/config root). Defaults to ~/.dsh. */
   dshHome?: string;
+  /** Plugin-only DeepSeek API key. When set, injected as DEEPSEEK_API_KEY —
+   *  DSH's inherited-environment layer wins over the credentials file, so the
+   *  plugin runs with its own key without touching the desktop app's
+   *  ~/.dsh/.credentials.yaml. */
+  apiKey?: string;
   /** Tool execution backend for the harness: '' (native default) | 'native' | 'code' | 'both'. */
   toolsMode?: string;
   /** DSH sandbox mode: read-only | workspace-write | danger-full-access. */
@@ -88,6 +93,10 @@ export class DshClient {
 
       const env: Record<string, string> = { ...process.env as Record<string, string> };
       if (opts.dshHome) env.DSH_HOME = opts.dshHome;
+      // Plugin-only API key: the environment layer wins over the credentials
+      // file in DSH's precedence, so this key takes effect even when the
+      // plugin DSH_HOME symlinks ~/.dsh/.credentials.yaml.
+      if (opts.apiKey) env.DEEPSEEK_API_KEY = opts.apiKey;
       // DSH_TOOLS_MODE selects the tool execution backend (native/code/both);
       // only set it when the user explicitly chose one. It is NOT a file
       // sandbox knob — file tools scope to the session cwd (= the vault).

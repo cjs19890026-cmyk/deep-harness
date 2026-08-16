@@ -76,6 +76,7 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 | dsh 二进制路径 | 自动探测 | 留空 = PATH |
 | Node.js 路径 | 自动探测 | 插件用 node 直接运行 dsh 脚本(绕过 Obsidian 受限 PATH 的 shebang 问题) |
 | DSH_HOME | `~/.dsh` | 凭据/配置根 |
+| 插件专属 API Key | 空 | 仅供插件使用的 DeepSeek API Key(与桌面端分离);留空 = 复用桌面端凭据 |
 | 工作目录 | vault 根 | 可填相对子目录限定 agent 范围 |
 | 任务超时 | 600s | 超时自动停止 |
 | 对话记忆 | 开 | 上下文回填 |
@@ -93,7 +94,7 @@ cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
 ## 安全
 
 - agent 的文件工具以 vault 为工作区;**但 bash 工具拥有用户级权限**(headless 默认无文件沙箱),persona 规则要求 agent 不修改 vault 外文件、破坏性操作先征得同意
-- 插件不收集任何 API Key,凭据全部走 DSH 既有配置
+- 凭据默认全部走 DSH 既有配置(不收集);可选在插件设置中填写「插件专属 API Key」,该 key 只存在本机插件数据文件、运行时以环境变量注入,不与桌面端共享
 - 卸载插件时终止所有子进程
 
 ## 路线图
