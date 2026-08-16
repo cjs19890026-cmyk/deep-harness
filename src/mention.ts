@@ -16,6 +16,7 @@
  */
 import { App, TFile, setIcon } from 'obsidian';
 import { t } from './i18n';
+import type { SuggestHost } from './chip-editor';
 
 /** Cap on how many matches are rendered at once. */
 const MAX_RESULTS = 50;
@@ -50,21 +51,21 @@ export class MentionSuggest {
 
   constructor(
     private readonly app: App,
-    private readonly inputEl: HTMLTextAreaElement,
+    private readonly host: SuggestHost,
     private readonly options: MentionSuggestOptions,
   ) {
     this.onInput = () => this.handleInput();
     // 'input' fires on typing; 'click' covers caret moves that change the
     // token context without changing the value.
-    this.inputEl.addEventListener('input', this.onInput);
-    this.inputEl.addEventListener('click', this.onInput);
+    this.host.el.addEventListener('input', this.onInput);
+    this.host.el.addEventListener('click', this.onInput);
   }
 
   /** Detach listeners and remove the popup. Call on view close. */
   dispose(): void {
     this.close();
-    this.inputEl.removeEventListener('input', this.onInput);
-    this.inputEl.removeEventListener('click', this.onInput);
+    this.host.el.removeEventListener('input', this.onInput);
+    this.host.el.removeEventListener('click', this.onInput);
   }
 
   /**
@@ -91,23 +92,19 @@ export class MentionSuggest {
 
   /**
    * Programmatic trigger (toolbar @ button): insert "@" at the caret when not
-   * already inside a mention token, then open the suggestion popup — identical
-   * to typing "@" in the composer.
+   * already inside a mention token, then open the suggestion popup. Unlike
+   * typed input, the button is an explicit intent, so the popup opens even
+   * when the "@" sits right after a chip (where the token-boundary regex
+   * would not match — the preceding char is "]").
    */
   trigger(): void {
-    const el = this.inputEl;
-    const pos = el.selectionStart ?? el.value.length;
-    const before = el.value.slice(0, pos);
-    const inToken = /(?:^|\s)@([^\s@]*)$/.test(before);
-    if (!inToken) {
-      el.value = before + '@' + el.value.slice(pos);
-      el.setSelectionRange(pos + 1, pos + 1);
-      // Programmatic value changes don't fire 'input'; dispatch so the
-      // composer re-sizes (and our handler re-parses — now in a token).
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+    const text = this.host.textBeforeCaret();
+    if (!/(?:^|\s)@([^\s@]*)$/.test(text)) {
+      this.host.replaceRange(text.length, '@');
     }
-    el.focus();
-    this.handleInput();
+    this.host.focus();
+    // The "@" is now the last char at the caret; open with an empty query.
+    this.openWithQuery('', this.host.textBeforeCaret().length - 1);
   }
 
   // ── parsing & filtering ──────────────────────────────
@@ -118,8 +115,13 @@ export class MentionSuggest {
       this.close();
       return;
     }
-    this.query = token.query;
-    this.tokenStart = token.tokenStart;
+    this.openWithQuery(token.query, token.tokenStart);
+  }
+
+  /** Build the index lazily, filter, and open / refresh the popup. */
+  private openWithQuery(query: string, tokenStart: number): void {
+    this.query = query;
+    this.tokenStart = tokenStart;
     if (!this.popup) {
       // Lazy index rebuild every time the popup opens (getMarkdownFiles is
       // fast even for thousands of notes; no event-based cache to maintain).
@@ -133,15 +135,10 @@ export class MentionSuggest {
 
   /** Parse the "@query" token immediately before the caret. */
   private parseToken(): { query: string; tokenStart: number } | null {
-    const el = this.inputEl;
-    const pos = el.selectionStart ?? el.value.length;
-    const text = el.value.slice(0, pos);
-    // "@" must sit at line start or after whitespace; the query runs to the
-    // caret and stops at whitespace / another "@".
+    const text = this.host.textBeforeCaret();
     const m = text.match(/(?:^|\s)@([^\s@]*)$/);
     if (!m || m.index === undefined) return null;
-    const atIndex = m.index + m[0].indexOf('@');
-    return { query: m[1], tokenStart: atIndex };
+    return { query: m[1], tokenStart: m.index + m[0].indexOf('@') };
   }
 
   /** All md notes under the workdir scope, sorted by path. */
@@ -226,23 +223,17 @@ export class MentionSuggest {
     if (current) current.scrollIntoView({ block: 'nearest' });
   }
 
-  /** Replace the "@query" token with [[path]] and place the caret after it. */
+  /**
+   * Replace the "@query" token with a wikilink — the chip editor renders it
+   * as a clickable title tag — and move the caret after it.
+   */
   private select(index: number): void {
     const item = this.filtered[index];
     if (!item) return;
-    const el = this.inputEl;
-    const start = el.selectionStart ?? el.value.length;
     const ref = `[[${item.path.replace(/\.md$/, '')}]]`;
-    const before = el.value.slice(0, this.tokenStart);
-    const after = el.value.slice(start);
-    el.value = before + ref + after;
-    const caret = this.tokenStart + ref.length;
-    el.setSelectionRange(caret, caret);
-    el.focus();
+    this.host.replaceRange(this.tokenStart, ref);
+    this.host.focus();
     this.close();
-    // Programmatic value changes don't fire 'input'; dispatch so the composer
-    // re-sizes (and our own handler re-parses — the token is gone, no-op).
-    el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   private onOutside = (e: MouseEvent): void => {

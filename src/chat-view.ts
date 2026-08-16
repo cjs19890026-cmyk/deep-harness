@@ -11,6 +11,7 @@ import { ContextMeter, estimateTokens } from './context-meter';
 import { parseHeadlessOutput, errorHint, contextWindowFor } from './pure';
 import { HistoryTool } from './history';
 import { MentionSuggest } from './mention';
+import { ChipEditor } from './chip-editor';
 import { t } from './i18n';
 import { NoteCreatorModal } from './modals';
 
@@ -35,7 +36,7 @@ export class ChatView extends ItemView {
   private runner: DshRunner;
 
   private messagesContainer!: HTMLElement;
-  private inputEl!: HTMLTextAreaElement;
+  private editor!: ChipEditor;
   private sendButton!: HTMLButtonElement;
   private clearBtn!: HTMLButtonElement;
   private modelTrigger!: HTMLButtonElement;
@@ -141,35 +142,30 @@ export class ChatView extends ItemView {
     this.historyBtn.setAttribute('aria-label', '历史记录');
     this.historyBtn.onclick = () => this.toggleHistoryPanel();
 
-    // Composer card: textarea + toolbar (model/effort/security/meter/send)
+    // Composer card: rich chip editor + toolbar (model/effort/security/meter/send)
     const composer = container.createDiv({ cls: 'dsh-composer' });
 
-    this.inputEl = composer.createEl('textarea', {
-      cls: 'dsh-input',
-      attr: { placeholder: t('chat.placeholder'), rows: '2' },
-    });
+    // Chip editor: contenteditable; [[wikilink]] references render as
+    // clickable chips instead of long path text.
+    this.editor = new ChipEditor(composer, this.app, { placeholder: t('chat.placeholder') });
     // @mention suggestion (own input/click listeners; only keydown is routed
     // through here so Enter/send stays in one place).
-    this.mention = new MentionSuggest(this.app, this.inputEl, {
+    this.mention = new MentionSuggest(this.app, this.editor, {
       getScope: () => this.plugin.settings.workdir,
       getAnchor: () => this.historyBtn,
     });
     // /skill completion: same popup pattern, anchored to the skill button.
-    this.skillSuggest = new SkillSuggest(this.app, this.inputEl, {
+    this.skillSuggest = new SkillSuggest(this.app, this.editor, {
       getSkills: () => this.scanSkills(),
       getAnchor: () => this.skillBtn,
     });
-    this.inputEl.addEventListener('keydown', (e) => {
+    this.editor.el.addEventListener('keydown', (e) => {
       if (this.skillSuggest?.handleKeydown(e)) return;
       if (this.mention?.handleKeydown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         void this.sendMessage();
       }
-    });
-    this.inputEl.addEventListener('input', () => {
-      this.inputEl.style.height = 'auto';
-      this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 200) + 'px';
     });
 
     const toolbar = composer.createDiv({ cls: 'dsh-composer-toolbar' });
@@ -310,7 +306,7 @@ export class ChatView extends ItemView {
   }
 
   private async sendMessage(): Promise<void> {
-    const message = this.inputEl.value.trim();
+    const message = this.editor.getText().trim();
     if (!message || this.running) {
       if (this.running) new Notice(t('chat.busy'));
       return;
@@ -337,8 +333,7 @@ export class ChatView extends ItemView {
       return;
     }
 
-    this.inputEl.value = '';
-    this.inputEl.style.height = 'auto';
+    this.editor.clear();
     this.renderMessage('user', message);
 
     this.running = true;
@@ -815,10 +810,8 @@ export class ChatView extends ItemView {
 
   /** Prefill the input (used by the "ask about active note" command). */
   setPendingInput(text: string): void {
-    this.inputEl.value = text;
-    this.inputEl.focus();
-    this.inputEl.style.height = 'auto';
-    this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 200) + 'px';
+    this.editor.setText(text);
+    this.editor.focus();
     this.scrollToBottom();
   }
 
@@ -848,20 +841,7 @@ export class ChatView extends ItemView {
 
   /** Insert text at the caret with one-space separation from neighbours. */
   private insertTextAtCursor(text: string): void {
-    const el = this.inputEl;
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? start;
-    const prefix = el.value.slice(0, start);
-    const suffix = el.value.slice(end);
-    const needSpaceBefore = prefix.length > 0 && !/\s$/.test(prefix);
-    const needSpaceAfter = suffix.length > 0 && !/^\s/.test(suffix);
-    const insert = (needSpaceBefore ? ' ' : '') + text + (needSpaceAfter ? ' ' : '');
-    el.value = prefix + insert + suffix;
-    el.focus();
-    const caret = start + insert.length;
-    el.setSelectionRange(caret, caret);
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    this.editor.insertTextWithSpacing(text);
   }
 
   /**

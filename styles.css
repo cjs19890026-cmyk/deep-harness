@@ -663,6 +663,53 @@
   line-height: 1.5;
 }
 
+/* Rich chip editor (contenteditable): grows with content, wraps like text. */
+.dsh-chip-input {
+  overflow-y: auto;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-sizing: border-box;
+  cursor: text;
+}
+
+/* Placeholder — only while the editor is empty (no text, no chips). */
+.dsh-chip-input.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+/* Note-reference chip: a clickable pill showing the note title. */
+.dsh-chip {
+  display: inline-flex;
+  align-items: center;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  color: var(--interactive-accent);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+  border-radius: 999px;
+  padding: 0 8px;
+  margin: 1px 2px;
+  font-size: var(--font-ui-smaller);
+  font-weight: 500;
+  line-height: 1.6;
+  cursor: pointer;
+  vertical-align: middle;
+  max-width: 260px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.dsh-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-chip:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+  border-color: var(--interactive-accent);
+}
+
 .dsh-input:focus {
   outline: none;
 }

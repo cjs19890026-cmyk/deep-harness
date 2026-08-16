@@ -10,6 +10,7 @@
 import { App, setIcon } from 'obsidian';
 import { t } from './i18n';
 import { filterSkillEntries, SkillEntry } from './skills';
+import type { SuggestHost } from './chip-editor';
 
 /** Cap on how many matches are rendered at once. */
 const MAX_RESULTS = 50;
@@ -34,19 +35,19 @@ export class SkillSuggest {
 
   constructor(
     private readonly app: App,
-    private readonly inputEl: HTMLTextAreaElement,
+    private readonly host: SuggestHost,
     private readonly options: SkillSuggestOptions,
   ) {
     this.onInput = () => this.handleInput();
-    this.inputEl.addEventListener('input', this.onInput);
-    this.inputEl.addEventListener('click', this.onInput);
+    this.host.el.addEventListener('input', this.onInput);
+    this.host.el.addEventListener('click', this.onInput);
   }
 
   /** Detach listeners and remove the popup. Call on view close. */
   dispose(): void {
     this.close();
-    this.inputEl.removeEventListener('input', this.onInput);
-    this.inputEl.removeEventListener('click', this.onInput);
+    this.host.el.removeEventListener('input', this.onInput);
+    this.host.el.removeEventListener('click', this.onInput);
   }
 
   /**
@@ -95,13 +96,10 @@ export class SkillSuggest {
    * URLs never trigger); the query stops at whitespace or another "/".
    */
   private parseToken(): { query: string; tokenStart: number } | null {
-    const el = this.inputEl;
-    const pos = el.selectionStart ?? el.value.length;
-    const text = el.value.slice(0, pos);
+    const text = this.host.textBeforeCaret();
     const m = text.match(/(?:^|\s)\/([^\s/]*)$/);
     if (!m || m.index === undefined) return null;
-    const slashIndex = m.index + m[0].indexOf('/');
-    return { query: m[1], tokenStart: slashIndex };
+    return { query: m[1], tokenStart: m.index + m[0].indexOf('/') };
   }
 
   // ── popup DOM & interaction ──────────────────────────
@@ -170,19 +168,10 @@ export class SkillSuggest {
   private select(index: number): void {
     const item = this.filtered[index];
     if (!item) return;
-    const el = this.inputEl;
-    const start = el.selectionStart ?? el.value.length;
     const ref = `/${item.name} `;
-    const before = el.value.slice(0, this.tokenStart);
-    const after = el.value.slice(start);
-    el.value = before + ref + after;
-    const caret = this.tokenStart + ref.length;
-    el.setSelectionRange(caret, caret);
-    el.focus();
+    this.host.replaceRange(this.tokenStart, ref);
+    this.host.focus();
     this.close();
-    // Programmatic value changes don't fire 'input'; dispatch so the composer
-    // re-sizes (and our own handler re-parses — the token is gone, no-op).
-    el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   private onOutside = (e: MouseEvent): void => {

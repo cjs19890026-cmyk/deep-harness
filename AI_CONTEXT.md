@@ -16,6 +16,7 @@
 ```
 src/main.ts          插件入口:视图注册、ribbon、命令、设置加载、vault 根目录
 src/chat-view.ts     聊天 UI:流式渲染、思考/工具块、历史面板、会话恢复、欢迎区
+src/chip-editor.ts   富文本输入框(contenteditable):[[路径]] 渲染为可点击 chip,序列化契约见文件头;兼作 @/ / 补全的 SuggestHost
 src/dsh-client.ts    子进程桥:spawn node <dsh>/bin.js --profile headless,超时/取消
 src/dsh-runner.ts    二进制探测、--patch 覆盖层生成(persona + stream-relay)、隔离 DSH_HOME、obsidian CLI 探测、长期记忆 seed
 src/obsidian-skill.ts  内置 obsidian DSH skill(SKILL.md + references/cli.md + conventions.md)及写入
