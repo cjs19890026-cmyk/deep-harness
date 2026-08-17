@@ -17,32 +17,37 @@
 - [x] `LICENSE`(MIT)、双语 `README.md` / `README_EN.md`
 - [x] `npm run build` production 构建通过,52 tests 全过
 
-## 1. 创建 GitHub Release(已完成 ✅)
+## 1. 创建 GitHub Release(已自动化 ✅)
 
-1. 提交并推送代码到 `main`(manifest.json 在 HEAD 上必须准确)
-2. 创建 Release:
-   - **Tag = manifest version `0.1.0` —— 绝不能带 `v` 前缀**
-   - 附件三件套(取自 `dist/`):`main.js` + `manifest.json` + `styles.css`
-   - 用户安装时 Obsidian 从「tag 与 manifest version 匹配的 release」下载这三个文件
-3. 已创建:https://github.com/cjs19890026-cmyk/dsh-obsidian-DeepHarness/releases/tag/0.1.0
+已配置官方 [GitHub Actions 工作流](.github/workflows/release.yml):**推 tag → 自动构建 → 产物 attestation → 草稿 Release(三件套)→ 手动发布**。已验证 0.1.0 全流程通过。
+
+发布新版本:
+
+```bash
+git tag -a <版本> -m <版本>   # 如 0.1.1;tag 必须等于 manifest version,不带 v
+git push origin <版本>
+# Actions 自动完成构建;完成后到 Releases 页编辑草稿,补 release notes 并 Publish
+```
+
+已发布:https://github.com/cjs19890026-cmyk/dsh-obsidian-DeepHarness/releases/tag/0.1.0
 
 ## 2. 通过 Obsidian 社区目录提交(网页操作,需你的 Obsidian 账号)
 
 1. 打开 [community.obsidian.md](https://community.obsidian.md) 并用 **Obsidian 账号**登录
-2. 在个人资料中**关联 GitHub 账号**(用于验证你拥有该仓库)
-3. 在目录中 **添加你的插件**(Set up and claim → Add a plugin):
-   - 仓库:`cjs19890026-cmyk/dsh-obsidian-DeepHarness`
+2. 进入你的 **Community profile** 页(左侧栏 Profile),在 **GitHub** 区块点 **Connect** 关联 GitHub 账号(目录需要只读验证你拥有仓库;这是在社区目录资料页,不是 obsidian.md 账号页)
+3. 在左侧栏 **Plugins** 页选 **New plugin** 添加:
+   - 仓库 URL:`https://github.com/cjs19890026-cmyk/dsh-obsidian-DeepHarness`
    - 目录会读取默认分支 HEAD 上的 `manifest.json`(id `deepharness`、version `0.1.0`)
-4. 提交后触发**自动审查**,目录页面会显示需修正的指引:
-   - 有错误 → 修仓库 + 发布新版本 Release(版本号递增)
+4. 提交后触发**自动审查**(含 artifact attestation 校验),目录页面会显示需修正的指引:
+   - 有错误 → 修仓库 + 发新版本 Release(版本号递增)
    - 无错误 → 可编辑描述并点击 **Publish**
 5. 审查通过并发布后,用户在 Obsidian 设置 → 第三方插件 → 浏览 中搜索 "DeepHarness" 即可安装
 
 ## 3. 后续更新(每次发版)
 
-1. bump `manifest.json` + `package.json` 的 version(如 `0.1.1`)
-2. `npm run build` → 提交推送
-3. 创建 Release:tag = 新版本号(无 v 前缀),附件带三件套
+1. bump `manifest.json` + `package.json` 的 version(如 `0.1.1`)并提交推送
+2. `git tag -a <版本> -m <版本> && git push origin <版本>` → Actions 自动构建草稿
+3. Releases 页编辑草稿补 release notes → Publish
 4. 用户端自动检测到更新(无需重新提交目录)
 
 ## 常见被拒/失败原因

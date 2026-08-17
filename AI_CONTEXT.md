@@ -34,6 +34,7 @@ src/settings.ts      设置项 + 设置页 UI
 src/i18n/index.ts    en/zh 双语,TranslationKey 类型约束
 styles.css           全部样式(类前缀 dsh-)
 esbuild.config.mjs   构建脚本(production 压缩)
+.github/workflows/release.yml  官方 Actions 发布流:推 tag → 构建 → attestation → 草稿 Release
 deploy.sh            构建 + 部署到指定 vault
 README.md / README_EN.md  中文 / 英文双语文档(顶部互链)
 docs/publish-checklist.md  发布到社区市场的检查清单与 PR 模板
