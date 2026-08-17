@@ -41,7 +41,7 @@ Verified locally: `dsh --profile headless "use bash to run pwd and ls…"` works
 npm install
 npm run build
 # Copy into your vault:
-cp -r dist /path/to/vault/.obsidian/plugins/dsh-obsidian/
+cp -r dist /path/to/vault/.obsidian/plugins/deepharness/
 ```
 
 After enabling the plugin, click the bot icon in the left ribbon to open the chat panel.
@@ -59,7 +59,7 @@ After enabling the plugin, click the bot icon in the left ribbon to open the cha
 - 🔗 **Reference current note**: the quote icon in the toolbar above the input inserts the note you are reading — if you have **text selected** in the note, the selection is inserted as a quoted block (auto-truncated with a source line); **without a selection** it inserts a bare wikilink (modeled after Claudian's New conversation)
 - @ **Mention notes**: type `@` in the input box to search and reference any note in the vault — live title/path matching, inserted as `[[path]]` (scoped by the "Working directory" setting)
 - ⚙️ **Command**: "Let DeepHarness process the current note"
-- 🗂 **Generated vault persona** (`.obsidian/plugins/dsh-obsidian/generated/vault.yml`)
+- 🗂 **Generated vault persona** (`.obsidian/plugins/deepharness/generated/vault.yml`)
   instructs the agent to use wikilinks and ask before destructive operations; freely editable
 - 🌐 **i18n UI** (English / 中文)
 

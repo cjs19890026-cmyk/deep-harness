@@ -6,7 +6,7 @@
 
 ## 一句话定位
 
-**DeepHarness**(插件 id `dsh-obsidian`)是一个 Obsidian 插件:spawn `dsh --profile headless`
+**DeepHarness**(插件 id `deepharness`)是一个 Obsidian 插件:spawn `dsh --profile headless`
 子进程,把 DeepSeek Harness 的完整 agent 能力(bash、文件工具、web 搜索、子代理)
 接入用户的 vault。定位对标 [Claudian](https://github.com/yishentu/claudian)(Claude Code 版),
 但执行层下沉到 DSH 运行时,插件只做进程桥接与 UI。
@@ -54,7 +54,7 @@ MAINTENANCE.md       本地维护日志(被 .gitignore 忽略,不上线)
 3. **隔离 DSH_HOME**:每任务写 `dsh-home/settings.yaml`(model + reasoningEffort),
    凭据软链复用用户 `~/.dsh`,不污染全局配置
 4. **patch 覆盖层**(`generated/` 目录):
-   - `vault.yml` = persona(用户可编辑;带版本标记 `dsh-obsidian-persona-vN`,升级时旧版备份为 `.bak` 后重新生成)
+   - `vault.yml` = persona(用户可编辑;带版本标记 `deepharness-persona-vN`,升级时旧版备份为 `.bak` 后重新生成)
    - `stream-relay.js` + `stream.yml` = 插件管理的流式中继,stdout 输出 `DLEVENT\t<json>`
      事件(think / tool),headless 本身无流式
 5. **内置 obsidian skill**:写入隔离 DSH_HOME 的 `skills/obsidian/`(SKILL.md + references/),
@@ -64,7 +64,7 @@ MAINTENANCE.md       本地维护日志(被 .gitignore 忽略,不上线)
 7. **官方 obsidian CLI**(Obsidian 1.12+,`设置→通用→命令行界面`):`detectObsidianCli()` 探测并把其目录注入 PATH;缺失时 agent 降级为文件工具
 5. **i18n**:所有用户可见文案必须走 `t()`;新增 key 必须 en + zh 同时加
 6. **历史持久化**:原子写(tmp + rename)+ 同步写(`onunload` 是 void,Obsidian 不 await)
-7. **显示名 DeepHarness**,插件 id / 文件夹名 `dsh-obsidian` 永远不变(路径依赖)
+7. **显示名 DeepHarness**,插件 id / 文件夹名 `deepharness` 永远不变(路径依赖)
 
 ## 常见命令
 
@@ -79,7 +79,7 @@ npx tsc --noEmit         # 类型检查
 
 ## 不能改的边界(红线)
 
-- 插件 `id` 与文件夹名 `dsh-obsidian`:history.json、dsh-home、generated 的绝对路径依赖它
+- 插件 `id` 与文件夹名 `deepharness`:history.json、dsh-home、generated 的绝对路径依赖它
 - `nodeBuiltins` 与 `obsidian` 必须保持 external,禁止打进 bundle
 - **不收集 API Key**:凭据只走用户本地 DSH_HOME / 环境变量,插件无外发网络请求
 - `DSH_PERMISSION_MODE`(沙箱模式)≠ `DSH_TOOLS_MODE`(工具后端),勿混淆(曾有历史 bug)

@@ -15,7 +15,7 @@ import { ChipEditor } from './chip-editor';
 import { t } from './i18n';
 import { NoteCreatorModal } from './modals';
 
-export const VIEW_TYPE_CHAT = 'dsh-obsidian-chat';
+export const VIEW_TYPE_CHAT = 'deepharness-chat';
 
 /** Rough fixed token cost of the vault persona system prompt (built-in rules). */
 const PERSONA_FIXED_TOKENS = 200;

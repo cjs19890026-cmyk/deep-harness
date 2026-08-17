@@ -1,4 +1,4 @@
-# dsh-obsidian — Obsidian 插件设计文档
+# deepharness — Obsidian 插件设计文档
 
 > 在 Obsidian 中直接调用 **DeepSeek Harness (DSH)** 完整能力的插件设计。
 > 本文档基于对 [Enigmora/claudian](https://github.com/Enigmora/claudian) 源码的深度分析,
@@ -10,7 +10,7 @@
 
 | 项目 | 结论 |
 |---|---|
-| 插件名 | `dsh-obsidian`(显示名 "DeepHarness") |
+| 插件名 | `deepharness`(显示名 "DeepHarness") |
 | 集成方式 | 插件通过 `child_process.spawn` 启动 `dsh --profile headless` 子进程,`cwd` = 当前 vault 根目录 |
 | 能力边界 | headless profile 挂载 DSH base 完整工具集:bash、文件读写/编辑/glob/grep、web 搜索、子代理等;受 DSH 自身文件沙箱管控 |
 | 已验证 | 本机真实运行 `dsh --profile headless "用 bash 运行 pwd 和 ls..."` → agent 执行工具并返回正确结果,exit 0 |
@@ -107,7 +107,7 @@ src/
 │ Obsidian (Electron, 桌面端)                                │
 │                                                            │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │ dsh-obsidian 插件                                     │  │
+│  │ deepharness 插件                                     │  │
 │  │                                                      │  │
 │  │  ChatView (ItemView) ──── 消息渲染 / 状态机 / 日志    │  │
 │  │       │                                              │  │
@@ -183,7 +183,7 @@ headless runner 的语义(已读源码确认):
 # generated/vault-stream.yml (插件生成)
 - insert:
     - id: obsidian-stream-relay
-      name: '@deepseek-ai/dsh-obsidian/stream-relay'
+      name: '@deepseek-ai/deepharness/stream-relay'
       inject: [loader]
       config: {}
 ```
@@ -355,7 +355,7 @@ class DshClient {
 
 ## 7. 与 Claudian 的能力对比
 
-| 维度 | Claudian | dsh-obsidian |
+| 维度 | Claudian | deepharness |
 |---|---|---|
 | 执行层 | 插件内置 52 个 vault 动作 | DSH agent 自主工具调用(vault + bash + web + 子代理) |
 | 能力扩展 | 改插件代码 | 无感:DSH 新工具即新能力 |

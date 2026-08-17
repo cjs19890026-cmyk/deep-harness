@@ -1,5 +1,5 @@
 /**
- * Minimal type-safe i18n for dsh-obsidian (en / zh).
+ * Minimal type-safe i18n for deepharness (en / zh).
  * Modeled after claudian's i18n core but trimmed to the essentials.
  */
 

@@ -1,9 +1,9 @@
 {
-  "id": "dsh-obsidian",
+  "id": "deepharness",
   "name": "DeepHarness",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Embeds DeepSeek Harness as an AI collaborator in your vault: chat with a full agent (bash, web search, file tools) that works on your notes.",
+  "description": "Chat with a DeepSeek Harness agent inside your vault: it runs bash, edits files, and searches the web to work on your notes.",
   "author": "cjs19890026-cmyk",
   "isDesktopOnly": true
 }

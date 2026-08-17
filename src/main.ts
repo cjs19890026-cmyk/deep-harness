@@ -18,7 +18,7 @@ export default class DshPlugin extends Plugin {
 
     // History store: human-readable task history in the plugin DSH_HOME.
     // NOTE: vault.adapter paths are relative to the vault root (not absolute).
-    const historyFile = '.obsidian/plugins/dsh-obsidian/dsh-home/history.json';
+    const historyFile = '.obsidian/plugins/deepharness/dsh-home/history.json';
     this.history = new HistoryStore(this.app, historyFile, this.settings.historyLimit);
     await this.history.load();
 

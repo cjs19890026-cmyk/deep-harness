@@ -59,13 +59,13 @@ dsh --profile headless "用 bash 运行 pwd 和 ls"
 2. 在你的 vault 中创建插件目录：
 
    ```bash
-   mkdir -p "/path/to/你的vault/.obsidian/plugins/dsh-obsidian"
+   mkdir -p "/path/to/你的vault/.obsidian/plugins/deepharness"
    ```
 
 3. 把三个文件复制到该目录，结构如下：
 
    ```
-   <vault>/.obsidian/plugins/dsh-obsidian/
+   <vault>/.obsidian/plugins/deepharness/
    ├── main.js
    ├── manifest.json
    └── styles.css
@@ -92,16 +92,16 @@ npm run build
 
 ```bash
 V="/path/to/你的vault"
-mkdir -p "$V/.obsidian/plugins/dsh-obsidian"
-cp dist/main.js dist/manifest.json dist/styles.css "$V/.obsidian/plugins/dsh-obsidian/"
+mkdir -p "$V/.obsidian/plugins/deepharness"
+cp dist/main.js dist/manifest.json dist/styles.css "$V/.obsidian/plugins/deepharness/"
 ```
 
 Windows PowerShell：
 
 ```powershell
 $V = "$env:USERPROFILE\Documents\YourVault"
-New-Item -ItemType Directory -Force "$V\.obsidian\plugins\dsh-obsidian"
-Copy-Item dist\main.js, dist\manifest.json, dist\styles.css "$V\.obsidian\plugins\dsh-obsidian\"
+New-Item -ItemType Directory -Force "$V\.obsidian\plugins\deepharness"
+Copy-Item dist\main.js, dist\manifest.json, dist\styles.css "$V\.obsidian\plugins\deepharness\"
 ```
 
 ### 启用插件
@@ -145,7 +145,7 @@ Copy-Item dist\main.js, dist\manifest.json, dist\styles.css "$V\.obsidian\plugin
 - **输入框笔记 chips**：输入框中的 `[[wikilink]]` 渲染为可点击的笔记标签，不再是一长串路径。
 - **命令**：「让 DeepHarness 处理当前笔记」自动把当前笔记内容（前 20000 字）填入任务。
 - **长期记忆** `Harness/memory.md`：agent 每轮任务先读、结束时把跨会话结论写回；用户可自由编辑。
-- **自动生成 vault persona**（`.obsidian/plugins/dsh-obsidian/generated/vault.yml`）：约束 agent 使用 wikilink、破坏性操作先征得同意；可自行编辑。
+- **自动生成 vault persona**（`.obsidian/plugins/deepharness/generated/vault.yml`）：约束 agent 使用 wikilink、破坏性操作先征得同意；可自行编辑。
 - **内置 `obsidian` 技能**：agent 自动获得 Obsidian 约定（frontmatter / wikilink / tag / 日记 / 附件等）与安全红线；用户可放自己的技能到 `<vault>/.dsh/skills/obsidian/` 覆盖。
 
 ### 🧠 模型与运行控制

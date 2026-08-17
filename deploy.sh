@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy.sh — 构建并部署 dsh-obsidian 到 Obsidian vault
+# deploy.sh — 构建并部署 deepharness 到 Obsidian vault
 # 用法: ./deploy.sh <vault路径> [--dev]
 # 例:  ./deploy.sh ~/Documents/MyVault
 
@@ -23,7 +23,7 @@ else
   npm run build
 fi
 
-DEST="$VAULT/.obsidian/plugins/dsh-obsidian"
+DEST="$VAULT/.obsidian/plugins/deepharness"
 mkdir -p "$DEST"
 cp dist/main.js dist/manifest.json dist/styles.css "$DEST/"
 echo "已部署到 $DEST — 在 Obsidian 中重新加载并启用插件"
