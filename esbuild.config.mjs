@@ -31,6 +31,9 @@ await esbuild.build({
   treeShaking: true,
   outfile: path.join(outdir, "main.js"),
   minify: prod,
+  banner: {
+    js: '// @ts-nocheck\n',
+  },
   define: {
     __DEV__: prod ? "false" : "true",
   },
