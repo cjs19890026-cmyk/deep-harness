@@ -274,14 +274,14 @@
   background: var(--background-modifier-border-hover);
 }
 
-.dsh-message-system {
-  background: var(--background-modifier-error) !important;
+.dsh-message.dsh-message-system {
+  background: var(--background-modifier-error);
   color: var(--text-error);
   border-color: var(--background-modifier-error-hover);
 }
 
-.dsh-message-system .dsh-message-content {
-  background: transparent !important;
+.dsh-message.dsh-message-system .dsh-message-content {
+  background: transparent;
   color: var(--text-error);
   border: none;
 }

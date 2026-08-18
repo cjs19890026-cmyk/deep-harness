@@ -123,7 +123,7 @@ export class HistoryStore {
     }
     this.current.turns.push(turn);
     this.current.endedAt = turn.ts;
-    await this.save();
+    this.save();
   }
 
   /** Archive the current session (if it has turns) and start a new one. */
@@ -132,7 +132,7 @@ export class HistoryStore {
     this.sessions.push(this.current);
     this.trim();
     this.current = this.newSession();
-    await this.save();
+    this.save();
   }
 
   /**
@@ -146,7 +146,7 @@ export class HistoryStore {
     const idx = this.sessions.findIndex((x) => x.id === id);
     if (idx === -1) {
       this.trim();
-      await this.save();
+      this.save();
       return null;
     }
     const activated = this.sessions[idx];
@@ -154,20 +154,20 @@ export class HistoryStore {
     this.current = activated;
     this.current.endedAt = Date.now();
     this.trim();
-    await this.save();
+    this.save();
     return activated;
   }
 
   async removeSession(id: string): Promise<void> {
     this.sessions = this.sessions.filter((s) => s.id !== id);
-    await this.save();
+    this.save();
   }
 
   async renameSession(id: string, title: string): Promise<void> {
     const s = this.sessions.find((x) => x.id === id);
     if (s) {
       s.title = title.trim() || s.title;
-      await this.save();
+      this.save();
     }
   }
 
@@ -175,7 +175,7 @@ export class HistoryStore {
     const s = this.sessions.find((x) => x.id === id);
     if (s) {
       s.pinned = !s.pinned;
-      await this.save();
+      this.save();
     }
   }
 
@@ -183,14 +183,14 @@ export class HistoryStore {
     const s = this.sessions.find((x) => x.id === id);
     if (s) {
       s.note = note.trim();
-      await this.save();
+      this.save();
     }
   }
 
   async clear(): Promise<void> {
     this.sessions = [];
     this.current = this.newSession();
-    await this.save();
+    this.save();
   }
 
   private newSession(): SessionRecord {

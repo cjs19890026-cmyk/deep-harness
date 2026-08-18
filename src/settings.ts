@@ -1,6 +1,6 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, type SettingDefinitionItem, type SettingDefinitionRender } from 'obsidian';
 import type DshPlugin from './main';
-import { t, Locale, resolveLocale } from './i18n';
+import { t, Locale } from './i18n';
 import { DshRunner } from './dsh-runner';
 
 export interface DshSettings {
@@ -80,284 +80,249 @@ export class DshSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    containerEl.createEl('h3', { text: 'DeepHarness' });
-    containerEl.createEl('p', {
-      text: '类 Claudian 的 AI 助手 · 由 DeepSeek Harness 驱动,运行在 Obsidian vault 中。请先确保本机已安装 dsh 并配置好模型凭据。',
-      cls: 'setting-item-description',
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    const s = this.plugin.settings;
+    const render = (
+      name: string,
+      desc: string | undefined,
+      fn: (setting: Setting) => void,
+    ): SettingDefinitionRender => ({
+      name,
+      ...(desc ? { desc } : {}),
+      render: fn,
     });
 
-    // Language
-    new Setting(containerEl)
-      .setName(t('settings.language.name'))
-      .setDesc(t('settings.language.desc'))
-      .addDropdown((dd) => {
-        dd.addOption('auto', 'Auto');
-        dd.addOption('en', 'English');
-        dd.addOption('zh', '中文');
-        dd.setValue(this.plugin.settings.language).onChange(async (value) => {
-          this.plugin.settings.language = value as DshSettings['language'];
-          await this.plugin.saveSettings();
-          this.plugin.applyLocale();
-          this.display();
-        });
-      });
+    return [
+      {
+        type: 'group',
+        heading: '常规',
+        items: [
+          render(t('settings.language.name'), t('settings.language.desc'), (setting) => {
+            setting.addDropdown((dd) => {
+              dd.addOption('auto', 'Auto');
+              dd.addOption('en', 'English');
+              dd.addOption('zh', '中文');
+              dd.setValue(s.language).onChange(async (value) => {
+                s.language = value as DshSettings['language'];
+                await this.plugin.saveSettings();
+                this.plugin.applyLocale();
+                this.update();
+              });
+            });
+          }),
 
-    // dsh binary
-    new Setting(containerEl)
-      .setName(t('settings.dshBin.name'))
-      .setDesc(t('settings.dshBin.desc'))
-      .addText((text) => text
-        .setPlaceholder(t('settings.dshBin.placeholder'))
-        .setValue(this.plugin.settings.dshBin)
-        .onChange(async (value) => {
-          this.plugin.settings.dshBin = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.dshBin.name'), t('settings.dshBin.desc'), (setting) => {
+            setting.addText((text) => text
+              .setPlaceholder(t('settings.dshBin.placeholder'))
+              .setValue(s.dshBin)
+              .onChange(async (value) => {
+                s.dshBin = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // node binary
-    new Setting(containerEl)
-      .setName(t('settings.nodeBin.name'))
-      .setDesc(t('settings.nodeBin.desc'))
-      .addText((text) => text
-        .setPlaceholder(t('settings.nodeBin.placeholder'))
-        .setValue(this.plugin.settings.nodeBin)
-        .onChange(async (value) => {
-          this.plugin.settings.nodeBin = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.nodeBin.name'), t('settings.nodeBin.desc'), (setting) => {
+            setting.addText((text) => text
+              .setPlaceholder(t('settings.nodeBin.placeholder'))
+              .setValue(s.nodeBin)
+              .onChange(async (value) => {
+                s.nodeBin = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // DSH_HOME
-    new Setting(containerEl)
-      .setName(t('settings.dshHome.name'))
-      .setDesc(t('settings.dshHome.desc'))
-      .addText((text) => text
-        .setPlaceholder(t('settings.dshHome.placeholder'))
-        .setValue(this.plugin.settings.dshHome)
-        .onChange(async (value) => {
-          this.plugin.settings.dshHome = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.dshHome.name'), t('settings.dshHome.desc'), (setting) => {
+            setting.addText((text) => text
+              .setPlaceholder(t('settings.dshHome.placeholder'))
+              .setValue(s.dshHome)
+              .onChange(async (value) => {
+                s.dshHome = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // Plugin-only API key (masked)
-    new Setting(containerEl)
-      .setName(t('settings.apiKey.name'))
-      .setDesc(t('settings.apiKey.desc'))
-      .addText((text) => {
-        text
-          .setPlaceholder(t('settings.apiKey.placeholder'))
-          .setValue(this.plugin.settings.apiKey)
-          .onChange(async (value) => {
-            this.plugin.settings.apiKey = value.trim();
-            await this.plugin.saveSettings();
-          });
-        text.inputEl.type = 'password';
-        text.inputEl.autocomplete = 'off';
-      });
+          render(t('settings.apiKey.name'), t('settings.apiKey.desc'), (setting) => {
+            setting.addText((text) => {
+              text
+                .setPlaceholder(t('settings.apiKey.placeholder'))
+                .setValue(s.apiKey)
+                .onChange(async (value) => {
+                  s.apiKey = value.trim();
+                  await this.plugin.saveSettings();
+                });
+              text.inputEl.type = 'password';
+              text.inputEl.autocomplete = 'off';
+            });
+          }),
 
-    // Workdir
-    new Setting(containerEl)
-      .setName(t('settings.workdir.name'))
-      .setDesc(t('settings.workdir.desc'))
-      .addText((text) => text
-        .setPlaceholder(t('settings.workdir.placeholder'))
-        .setValue(this.plugin.settings.workdir)
-        .onChange(async (value) => {
-          this.plugin.settings.workdir = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.workdir.name'), t('settings.workdir.desc'), (setting) => {
+            setting.addText((text) => text
+              .setPlaceholder(t('settings.workdir.placeholder'))
+              .setValue(s.workdir)
+              .onChange(async (value) => {
+                s.workdir = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // Timeout
-    new Setting(containerEl)
-      .setName(t('settings.timeout.name'))
-      .setDesc(t('settings.timeout.desc'))
-      .addSlider((slider) => slider
-        .setLimits(30, 1800, 30)
-        .setValue(this.plugin.settings.timeoutSec)
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-          this.plugin.settings.timeoutSec = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.timeout.name'), t('settings.timeout.desc'), (setting) => {
+            setting.addSlider((slider) => slider
+              .setLimits(30, 1800, 30)
+              .setValue(s.timeoutSec)
+              .onChange(async (value) => {
+                s.timeoutSec = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // Conversation memory
-    new Setting(containerEl)
-      .setName(t('settings.memory.name'))
-      .setDesc(t('settings.memory.desc'))
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.memoryEnabled)
-        .onChange(async (value) => {
-          this.plugin.settings.memoryEnabled = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.memory.name'), t('settings.memory.desc'), (setting) => {
+            setting.addToggle((toggle) => toggle
+              .setValue(s.memoryEnabled)
+              .onChange(async (value) => {
+                s.memoryEnabled = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // Tool execution mode
-    new Setting(containerEl)
-      .setName(t('settings.toolMode.name'))
-      .setDesc(t('settings.toolMode.desc'))
-      .addDropdown((dd) => {
-        dd.addOption('', '默认 (native)');
-        dd.addOption('native', 'native');
-        dd.addOption('code', 'code');
-        dd.addOption('both', 'both');
-        dd.setValue(this.plugin.settings.toolExecutionMode).onChange(async (value) => {
-          this.plugin.settings.toolExecutionMode = value;
-          await this.plugin.saveSettings();
-        });
-      });
+          render(t('settings.toolMode.name'), t('settings.toolMode.desc'), (setting) => {
+            setting.addDropdown((dd) => {
+              dd.addOption('', '默认 (native)');
+              dd.addOption('native', 'Native');
+              dd.addOption('code', 'Code');
+              dd.addOption('both', 'Both');
+              dd.setValue(s.toolExecutionMode).onChange(async (value) => {
+                s.toolExecutionMode = value;
+                await this.plugin.saveSettings();
+              });
+            });
+          }),
 
-    // Model (also switchable from the chat header)
-    new Setting(containerEl)
-      .setName(t('settings.model.name'))
-      .setDesc(t('settings.model.desc'))
-      .addDropdown((dd) => {
-        for (const m of MODEL_OPTIONS) dd.addOption(m.id, m.label);
-        dd.setValue(this.plugin.settings.model).onChange(async (value) => {
-          this.plugin.settings.model = value;
-          await this.plugin.saveSettings();
-        });
-      });
+          render(t('settings.model.name'), t('settings.model.desc'), (setting) => {
+            setting.addDropdown((dd) => {
+              for (const m of MODEL_OPTIONS) dd.addOption(m.id, m.label);
+              dd.setValue(s.model).onChange(async (value) => {
+                s.model = value;
+                await this.plugin.saveSettings();
+              });
+            });
+          }),
 
-    // Reasoning effort (also switchable from the chat header)
-    new Setting(containerEl)
-      .setName(t('settings.reasoning.name'))
-      .setDesc(t('settings.reasoning.desc'))
-      .addDropdown((dd) => {
-        for (const r of REASONING_OPTIONS) dd.addOption(r.id, r.label);
-        dd.setValue(this.plugin.settings.reasoningEffort).onChange(async (value) => {
-          this.plugin.settings.reasoningEffort = value;
-          await this.plugin.saveSettings();
-        });
-      });
+          render(t('settings.reasoning.name'), t('settings.reasoning.desc'), (setting) => {
+            setting.addDropdown((dd) => {
+              for (const r of REASONING_OPTIONS) dd.addOption(r.id, r.label);
+              dd.setValue(s.reasoningEffort).onChange(async (value) => {
+                s.reasoningEffort = value;
+                await this.plugin.saveSettings();
+              });
+            });
+          }),
 
-    // Permission / sandbox mode (also switchable from the chat header)
-    new Setting(containerEl)
-      .setName(t('settings.permission.name'))
-      .setDesc(t('settings.permission.desc'))
-      .addDropdown((dd) => {
-        for (const p of PERMISSION_OPTIONS) dd.addOption(p.id, p.label);
-        dd.setValue(this.plugin.settings.permissionMode).onChange(async (value) => {
-          // Shared guard: switching into full access asks for confirmation
-          // first; on cancel, revert the dropdown to the still-active mode.
-          await this.plugin.setPermissionMode(value);
-          dd.setValue(this.plugin.settings.permissionMode);
-        });
-      });
+          render(t('settings.permission.name'), t('settings.permission.desc'), (setting) => {
+            setting.addDropdown((dd) => {
+              for (const p of PERMISSION_OPTIONS) dd.addOption(p.id, p.label);
+              dd.setValue(s.permissionMode).onChange(async (value) => {
+                await this.plugin.setPermissionMode(value);
+                dd.setValue(s.permissionMode);
+              });
+            });
+          }),
 
-    // Show/hide thinking block
-    new Setting(containerEl)
-      .setName(t('settings.showThinking.name'))
-      .setDesc(t('settings.showThinking.desc'))
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showThinking)
-        .onChange(async (value) => {
-          this.plugin.settings.showThinking = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.showThinking.name'), t('settings.showThinking.desc'), (setting) => {
+            setting.addToggle((toggle) => toggle
+              .setValue(s.showThinking)
+              .onChange(async (value) => {
+                s.showThinking = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // Show/hide tool calls
-    new Setting(containerEl)
-      .setName(t('settings.showTools.name'))
-      .setDesc(t('settings.showTools.desc'))
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.showTools)
-        .onChange(async (value) => {
-          this.plugin.settings.showTools = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.showTools.name'), t('settings.showTools.desc'), (setting) => {
+            setting.addToggle((toggle) => toggle
+              .setValue(s.showTools)
+              .onChange(async (value) => {
+                s.showTools = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // History limit
-    new Setting(containerEl)
-      .setName(t('settings.historyLimit.name'))
-      .setDesc(t('settings.historyLimit.desc'))
-      .addSlider((slider) => slider
-        .setLimits(10, 200, 10)
-        .setValue(this.plugin.settings.historyLimit)
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-          this.plugin.settings.historyLimit = value;
-          await this.plugin.saveSettings();
-          this.plugin.history?.setLimit(value);
-        }));
+          render(t('settings.historyLimit.name'), t('settings.historyLimit.desc'), (setting) => {
+            setting.addSlider((slider) => slider
+              .setLimits(10, 200, 10)
+              .setValue(s.historyLimit)
+              .onChange(async (value) => {
+                s.historyLimit = value;
+                await this.plugin.saveSettings();
+                this.plugin.history?.setLimit(value);
+              }));
+          }),
 
-    // Built-in obsidian skill
-    new Setting(containerEl)
-      .setName(t('settings.obsidianSkill.name'))
-      .setDesc(t('settings.obsidianSkill.desc'))
-      .addToggle((toggle) => toggle
-        .setValue(this.plugin.settings.obsidianSkill)
-        .onChange(async (value) => {
-          this.plugin.settings.obsidianSkill = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.obsidianSkill.name'), t('settings.obsidianSkill.desc'), (setting) => {
+            setting.addToggle((toggle) => toggle
+              .setValue(s.obsidianSkill)
+              .onChange(async (value) => {
+                s.obsidianSkill = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // Extra skill directories (scanned by the skills button + passed to DSH)
-    new Setting(containerEl)
-      .setName(t('settings.extraSkillDirs.name'))
-      .setDesc(t('settings.extraSkillDirs.desc'))
-      .addText((text) => text
-        .setPlaceholder(t('settings.extraSkillDirs.placeholder'))
-        .setValue(this.plugin.settings.extraSkillDirs)
-        .onChange(async (value) => {
-          this.plugin.settings.extraSkillDirs = value;
-          await this.plugin.saveSettings();
-        }));
+          render(t('settings.extraSkillDirs.name'), t('settings.extraSkillDirs.desc'), (setting) => {
+            setting.addText((text) => text
+              .setPlaceholder(t('settings.extraSkillDirs.placeholder'))
+              .setValue(s.extraSkillDirs)
+              .onChange(async (value) => {
+                s.extraSkillDirs = value;
+                await this.plugin.saveSettings();
+              }));
+          }),
 
-    // Custom persona
-    new Setting(containerEl)
-      .setName(t('settings.persona.name'))
-      .setDesc(t('settings.persona.desc'))
-      .addTextArea((text) => {
-        text
-          .setPlaceholder(t('settings.persona.placeholder'))
-          .setValue(this.plugin.settings.customPersona)
-          .onChange(async (value) => {
-            this.plugin.settings.customPersona = value;
-            await this.plugin.saveSettings();
-            // Invalidate the generated patch so it regenerates with the new persona.
-            this.plugin.invalidateVaultPatch();
-          });
-        text.inputEl.rows = 3;
-      });
+          render(t('settings.persona.name'), t('settings.persona.desc'), (setting) => {
+            setting.addTextArea((text) => {
+              text
+                .setPlaceholder(t('settings.persona.placeholder'))
+                .setValue(s.customPersona)
+                .onChange(async (value) => {
+                  s.customPersona = value;
+                  await this.plugin.saveSettings();
+                  this.plugin.invalidateVaultPatch();
+                });
+              text.inputEl.rows = 3;
+            });
+          }),
 
-    containerEl.createEl('hr');
+          render(t('settings.check.title'), t('settings.check.help'), (setting) => {
+            setting.addButton((button) => button
+              .setButtonText(t('settings.check.run'))
+              .onClick(async () => {
+                const runner = new DshRunner(this.plugin.settings, this.plugin.app.vault.configDir);
+                const diag = await runner.diagnose();
+                const line = setting.settingEl.createEl('p', {
+                  cls: diag.found ? 'dsh-check-ok' : 'dsh-check-fail',
+                });
+                if (!diag.found) {
+                  line.setText(t('settings.check.missing'));
+                } else {
+                  line.setText(t('settings.check.ok', { path: diag.bin }));
+                  if (diag.version) line.createEl('br');
+                  line.createSpan({ text: diag.version ?? diag.error ?? '' });
+                }
+                if (diag.nodeBin) {
+                  const nodeLine = setting.settingEl.createEl('p', { cls: 'dsh-check-ok' });
+                  nodeLine.setText(`✓ Node.js: ${diag.nodeBin}`);
+                } else {
+                  const nodeLine = setting.settingEl.createEl('p', { cls: 'dsh-check-fail' });
+                  nodeLine.setText('✗ 未找到 Node.js,请在设置中填写 node 路径');
+                }
+              }));
+          }),
 
-    // Environment check
-    new Setting(containerEl)
-      .setName(t('settings.check.title'))
-      .setDesc(t('settings.check.help'))
-      .addButton((button) => button
-        .setButtonText(t('settings.check.run'))
-        .onClick(async () => {
-          const runner = new DshRunner(this.plugin.settings);
-          const diag = await runner.diagnose();
-          const line = containerEl.createEl('p', {
-            cls: diag.found ? 'dsh-check-ok' : 'dsh-check-fail',
-          });
-          if (!diag.found) {
-            line.setText(t('settings.check.missing'));
-          } else {
-            line.setText(t('settings.check.ok', { path: diag.bin }));
-            if (diag.version) line.createEl('br');
-            line.createSpan({ text: diag.version ?? diag.error ?? '' });
-          }
-          if (diag.nodeBin) {
-            const nodeLine = containerEl.createEl('p', { cls: 'dsh-check-ok' });
-            nodeLine.setText(`✓ Node.js: ${diag.nodeBin}`);
-          } else {
-            const nodeLine = containerEl.createEl('p', { cls: 'dsh-check-fail' });
-            nodeLine.setText('✗ 未找到 Node.js,请在设置中填写 node 路径');
-          }
-        }));
-
-    containerEl.createEl('hr');
-    containerEl.createEl('p', {
-      text: t('settings.footer'),
-      cls: 'setting-item-description',
-    });
+          {
+            name: '',
+            desc: t('settings.footer'),
+            render: () => {},
+          },
+        ],
+      },
+    ];
   }
 }
 

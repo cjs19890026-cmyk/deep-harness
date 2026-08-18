@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Menu, Component, MarkdownView, Keymap } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Notice, setIcon, Menu, MarkdownView, Keymap } from 'obsidian';
 import type DshPlugin from './main';
 import { DshClient } from './dsh-client';
 import { DshRunner } from './dsh-runner';
@@ -65,7 +65,7 @@ export class ChatView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.client = new DshClient();
-    this.runner = new DshRunner(plugin.settings);
+    this.runner = new DshRunner(plugin.settings, plugin.app.vault.configDir);
   }
 
   getViewType(): string {
@@ -73,7 +73,7 @@ export class ChatView extends ItemView {
   }
 
   getDisplayText(): string {
-    return 'DeepHarness';
+    return 'Deep harness';
   }
 
   getIcon(): string {
@@ -85,10 +85,7 @@ export class ChatView extends ItemView {
     container.empty();
     container.addClass('dsh-container');
 
-    // Ensure cursor text selection works everywhere in the chat UI
-    // (Obsidian views default to non-selectable; inline style beats themes).
-    container.style.setProperty('user-select', 'text');
-    container.style.setProperty('-webkit-user-select', 'text');
+    // Cursor text selection is enabled via the .dsh-container CSS rules.
 
     // Track the last focused markdown view so the reference icon can quote its
     // selection even after the chat panel itself has taken focus.
@@ -104,7 +101,7 @@ export class ChatView extends ItemView {
     // Header
     const header = container.createDiv({ cls: 'dsh-header' });
     const title = header.createDiv({ cls: 'dsh-header-title' });
-    title.createEl('h4', { text: 'DeepHarness' });
+    title.createEl('h4', { text: 'Deep harness' });
     title.createSpan({ cls: 'dsh-header-sub', text: 'DeepSeek · Obsidian' });
 
     this.clearBtn = header.createEl('button', { cls: 'dsh-icon-btn' });
@@ -178,8 +175,8 @@ export class ChatView extends ItemView {
 
     // Security trigger button
     this.securityTrigger = toolbar.createEl('button', { cls: 'dsh-trigger dsh-trigger-security' });
-    this.securityTrigger.createSpan({ cls: 'dsh-trigger-security-icon' });
-    setIcon(this.securityTrigger.querySelector('.dsh-trigger-security-icon') as HTMLElement, 'shield');
+    const securityIcon = this.securityTrigger.createSpan({ cls: 'dsh-trigger-security-icon' });
+    setIcon(securityIcon, 'shield');
     this.securityTrigger.createSpan({ cls: 'dsh-trigger-security-label' });
     this.securityTrigger.onclick = (e) => this.showSecurityMenu(e);
 
@@ -404,7 +401,7 @@ export class ChatView extends ItemView {
       if (!line.startsWith('DLEVENT\t')) return;
       let evt: { t?: string; text?: string; status?: string; id?: string; name?: string; args?: string; argsFull?: string; ok?: boolean; summary?: string };
       try {
-        evt = JSON.parse(line.slice('DLEVENT\t'.length));
+        evt = JSON.parse(line.slice('DLEVENT\t'.length)) as typeof evt;
       } catch {
         return;
       }
@@ -498,7 +495,7 @@ export class ChatView extends ItemView {
         const errMsg = this.extractError(result.stderr);
         statusEl.setText(`✗ ${t('chat.failed', { message: errMsg })}`);
         statusEl.addClass('dsh-status-error');
-        contentEl.createEl('span', { text: `> ❌ ${t('chat.failed', { message: errMsg })}`, cls: 'dsh-error-inline' });
+        contentEl.createSpan({ text: `> ❌ ${t('chat.failed', { message: errMsg })}`, cls: 'dsh-error-inline' });
         this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, thinkingText, null);
       } else {
         // The stream relay consumed DLEVENT lines live; the remaining stdout
@@ -531,7 +528,7 @@ export class ChatView extends ItemView {
       const msg = e instanceof Error ? e.message : String(e);
       statusEl.setText(`✗ ${t('chat.failed', { message: msg })}`);
       statusEl.addClass('dsh-status-error');
-      contentEl.createEl('span', { text: `> ❌ ${t('chat.failed', { message: msg })}`, cls: 'dsh-error-inline' });
+      contentEl.createSpan({ text: `> ❌ ${t('chat.failed', { message: msg })}`, cls: 'dsh-error-inline' });
       this.finalizeStreamMessage(respEl, contentEl, thinkBlock, thinkBody, thinkingText, null);
     } finally {
       this.running = false;
@@ -743,7 +740,7 @@ export class ChatView extends ItemView {
         // Thinking is live-expanded while running, then auto-collapsed once
         // the answer is complete (user can re-expand it).
         thinkBody.classList.add('hidden');
-        const chevron = thinkBlock.querySelector('.dsh-think-chevron') as HTMLElement | null;
+        const chevron = thinkBlock.querySelector<HTMLElement>('.dsh-think-chevron');
         if (chevron) setIcon(chevron, 'chevron-right');
       } else {
         thinkBlock.remove();
@@ -956,7 +953,7 @@ export class ChatView extends ItemView {
         // Click the item anywhere (not on a button) → resume the session
         item.onclick = () => {
           this.closeHistoryPanel();
-          this.resumeSession(s);
+          void this.resumeSession(s);
         };
       }
     }
@@ -968,7 +965,7 @@ export class ChatView extends ItemView {
     panel.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
     panel.style.bottom = `${window.innerHeight - rect.top + 4}px`;
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       document.addEventListener('mousedown', this.onPanelOutside);
     }, 0);
     document.addEventListener('keydown', this.onPanelKeydown);
@@ -1079,7 +1076,7 @@ export class ChatView extends ItemView {
     panel.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
     panel.style.bottom = `${window.innerHeight - rect.top + 4}px`;
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       document.addEventListener('mousedown', this.onPanelOutside);
     }, 0);
     document.addEventListener('keydown', this.onPanelKeydown);

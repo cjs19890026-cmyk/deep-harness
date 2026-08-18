@@ -18,7 +18,8 @@ export default class DshPlugin extends Plugin {
 
     // History store: human-readable task history in the plugin DSH_HOME.
     // NOTE: vault.adapter paths are relative to the vault root (not absolute).
-    const historyFile = '.obsidian/plugins/deepharness/dsh-home/history.json';
+    const configDir = this.app.vault.configDir;
+    const historyFile = `${configDir}/plugins/deepharness/dsh-home/history.json`;
     this.history = new HistoryStore(this.app, historyFile, this.settings.historyLimit);
     await this.history.load();
 
@@ -26,14 +27,14 @@ export default class DshPlugin extends Plugin {
     this.registerView(VIEW_TYPE_CHAT, (leaf: WorkspaceLeaf) => new ChatView(leaf, this));
 
     // Ribbon icon
-    this.addRibbonIcon('bot', 'DeepHarness', () => {
+    this.addRibbonIcon('bot', 'Deep harness', () => {
       void this.activateChatView();
     });
 
     // Command: open chat
     this.addCommand({
       id: 'open-harness-chat',
-      name: '打开 DeepHarness',
+      name: '打开聊天面板',
       callback: () => {
         void this.activateChatView();
       },
@@ -42,7 +43,7 @@ export default class DshPlugin extends Plugin {
     // Command: ask about the active note
     this.addCommand({
       id: 'ask-active-note',
-      name: '让 DeepHarness 处理当前笔记',
+      name: '处理当前笔记',
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         if (file?.extension === 'md') {
@@ -68,7 +69,7 @@ export default class DshPlugin extends Plugin {
     // so the archive + write complete inline. Obsidian declares onunload() as
     // void and does NOT await a returned Promise — an async onunload would be
     // cut off mid-write on quit.
-    this.history?.endSession();
+    void this.history?.endSession();
   }
 
   /** Absolute filesystem path of the vault root. */
@@ -78,7 +79,7 @@ export default class DshPlugin extends Plugin {
       return adapter.getBasePath();
     }
     // Fallback: use the vault name under the default Obsidian location.
-    return (this.app.vault.getName() || 'vault') as string;
+    return this.app.vault.getName() || 'vault';
   }
 
   /** Re-apply UI language from settings + Obsidian locale. */
@@ -137,7 +138,7 @@ export default class DshPlugin extends Plugin {
 
   private getChatView(): ChatView | null {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT);
-    return leaves.length > 0 ? (leaves[0].view as unknown as ChatView) : null;
+    return leaves.length > 0 ? (leaves[0].view as ChatView) : null;
   }
 
   async activateChatView(): Promise<void> {
@@ -150,7 +151,7 @@ export default class DshPlugin extends Plugin {
       }
     }
     if (leaf) {
-      await workspace.revealLeaf(leaf);
+      workspace.setActiveLeaf(leaf, { focus: true });
     }
   }
 

@@ -134,7 +134,10 @@ function isNodeScript(p: string): boolean {
 }
 
 export class DshRunner {
-  constructor(private settings: DshSettings) {}
+  constructor(
+    private settings: DshSettings,
+    private configDir: string,
+  ) {}
 
   /** Resolve the dsh binary path, or null when not found. */
   async detectBin(): Promise<string | null> {
@@ -258,7 +261,7 @@ export class DshRunner {
    */
   /** Absolute path of the plugin-owned DSH_HOME inside the vault. */
   pluginHomeDir(vaultRoot: string): string {
-    return path.join(vaultRoot, '.obsidian', 'plugins', 'deepharness', 'dsh-home');
+    return path.join(vaultRoot, this.configDir, 'plugins', 'deepharness', 'dsh-home');
   }
 
   ensurePluginDshHome(
@@ -392,7 +395,7 @@ export class DshRunner {
       }
     }
     if (dirs.length === 0) return null;
-    const dir = path.join(vaultRoot, '.obsidian', 'plugins', 'deepharness', 'generated');
+    const dir = path.join(vaultRoot, this.configDir, 'plugins', 'deepharness', 'generated');
     const file = path.join(dir, 'skill-dirs.yml');
     try {
       fs.mkdirSync(dir, { recursive: true });
@@ -423,7 +426,7 @@ export class DshRunner {
   async ensureVaultPatch(
     vaultRoot: string,
   ): Promise<{ persona: string | null; think: string | null }> {
-    const dir = path.join(vaultRoot, '.obsidian', 'plugins', 'deepharness', 'generated');
+    const dir = path.join(vaultRoot, this.configDir, 'plugins', 'deepharness', 'generated');
     try {
       fs.mkdirSync(dir, { recursive: true });
       // Some environments create dirs without the execute bit, which breaks

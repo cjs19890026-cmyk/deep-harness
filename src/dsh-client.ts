@@ -175,11 +175,11 @@ export class DshClient {
 
       // Timeout
       if (opts.timeoutMs && opts.timeoutMs > 0) {
-        const timer = setTimeout(() => {
+        const timer = window.setTimeout(() => {
           killed = true;
           this.killChild(child);
         }, opts.timeoutMs);
-        child.on('close', () => clearTimeout(timer));
+        child.on('close', () => window.clearTimeout(timer));
       }
 
       // User cancellation
@@ -233,7 +233,7 @@ export class DshClient {
     try {
       kill('SIGTERM');
       // Escalate after a grace period.
-      setTimeout(() => {
+      window.setTimeout(() => {
         if (child.exitCode === null && child.signalCode === null) {
           kill('SIGKILL');
         }

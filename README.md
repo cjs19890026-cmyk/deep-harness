@@ -5,7 +5,7 @@
   <p><b>真正的 Agent · 完整工具链 · 数据与密钥留在本机</b></p>
   <p>
     <img src="https://img.shields.io/badge/version-0.1.0-4C8DFF?style=flat-square" alt="Version">
-    <img src="https://img.shields.io/badge/Obsidian-1.4.0%2B-7C3AED?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian">
+    <img src="https://img.shields.io/badge/Obsidian-1.13.0%2B-7C3AED?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian">
     <img src="https://img.shields.io/badge/license-MIT-3DA639?style=flat-square" alt="License">
     <img src="https://img.shields.io/badge/platform-desktop%20only-8A2BE2?style=flat-square" alt="Desktop only">
   </p>
@@ -16,6 +16,8 @@
   <a href="./DESIGN.md">设计文档</a> ·
   <a href="https://github.com/cjs19890026-cmyk/dsh-obsidian-DeepHarness">GitHub</a>
 </p>
+
+> **DeepHarness** is a desktop-only Obsidian plugin that connects DeepSeek Harness (DSH) to your vault. It runs autonomous agents that can read, search, edit, and write notes through bash, file tools, web search, and more. Credentials stay local.
 
 > [!NOTE]
 > 本插件是**桌面端插件**：它需要在本机拉起 `dsh` 子进程并直接操作 vault 文件，因此不支持 Obsidian Mobile。
@@ -36,7 +38,7 @@
 
 | 依赖 | 要求 | 说明 |
 | --- | --- | --- |
-| Obsidian | **1.4.0 及以上**的桌面版 | Windows / macOS / Linux 均可；移动端不支持 |
+| Obsidian | **1.13.0 及以上**的桌面版 | Windows / macOS / Linux 均可；移动端不支持 |
 | Node.js | **20+（建议 LTS）** | 构建插件与运行 DSH 都需要；若 `dsh` 的 shebang 在 Obsidian 受限 PATH 下失效，插件会直接用 node 运行 DSH 入口脚本 |
 | DeepSeek Harness CLI | `npm i -g @deepseek-ai/dsh` | 插件不内置 agent，DSH 才是执行引擎 |
 | DeepSeek 凭据 | 任选其一 | ① 在 DSH Web（Models 页）写入 `~/.dsh/.credentials.yaml`；② 导出 `DEEPSEEK_API_KEY` 环境变量；③ 在插件设置中填写「插件专属 API Key」 |

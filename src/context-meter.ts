@@ -94,7 +94,7 @@ export class ContextMeter {
         'stroke-dashoffset': String(CIRCUMFERENCE),
         transform: `rotate(-90 ${size / 2} ${size / 2})`,
       },
-    }) as SVGCircleElement;
+    });
 
     // Hover tip: only visible while the cursor is over the ring
     this.tip = this.el.createDiv({ cls: 'dsh-meter-tip hidden' });

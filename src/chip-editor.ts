@@ -38,8 +38,6 @@ export interface ChipEditorOptions {
   placeholder: string;
 }
 
-const WIKILINK = /\[\[([^\]]+)\]\]/;
-
 /** Display title of a note path: the last path segment. */
 export function chipTitle(path: string): string {
   return path.split('/').pop() || path;
@@ -277,18 +275,18 @@ export class ChipEditor implements SuggestHost {
    */
   private onMousedown = (e: MouseEvent): void => {
     const target = e.target as HTMLElement;
-    const chip = target.closest('.dsh-chip') as HTMLElement | null;
+    const chip = target.closest<HTMLElement>('.dsh-chip');
     if (!chip) return;
     e.preventDefault();
     e.stopPropagation();
     const path = chip.dataset.path;
-    if (path) this.app.workspace.openLinkText(path, '');
+    if (path) void this.app.workspace.openLinkText(path, '');
   };
 
   /** Clicking a chip opens the note (internal link). */
   private onClick = (e: MouseEvent): void => {
     const target = e.target as HTMLElement;
-    const chip = target.closest('.dsh-chip') as HTMLElement | null;
+    const chip = target.closest<HTMLElement>('.dsh-chip');
     if (!chip) return;
     e.preventDefault();
     e.stopPropagation();
