@@ -2,7 +2,47 @@
  * Obsidian-free pure helpers, extracted so they can be unit-tested in Node
  * without pulling in the `obsidian` API.
  */
+import { pathToFileURL } from 'url';
 import { t } from './i18n';
+
+/**
+ * Render the stream-relay patch overlay (`stream.yml`) for a relay script.
+ *
+ * The relay script must be referenced by a `file://` URL: Node's ESM loader
+ * rejects bare Windows absolute paths ("D:\\...") as plugin import
+ * specifiers (ERR_UNSUPPORTED_ESM_URL_SCHEME), while file URLs work on
+ * every platform.
+ */
+export function streamRelayPatchYaml(relayFile: string): string {
+  const spec = pathToFileURL(relayFile).href;
+  return [
+    '# 由 deepharness 生成。实时输出 agent 的思考( reasoning )与',
+    '# 工具调用( tool )事件,格式 "DLEVENT\\t<json>" 供插件流式解析。',
+    '- insert:',
+    '    - id: deepharness-stream-relay',
+    `      name: ${JSON.stringify(spec)}`,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Extract the real Node.js script target from an npm-generated Windows shim
+ * (.cmd / .ps1 / POSIX-sh "dsh" launcher). npm writes one of these per global
+ * bin; each delegates to the actual JS entry, e.g. .cmd:
+ *
+ *   "%_prog%"  "%dp0%\node_modules\@deepseek-ai\dsh\lib\bin.js" %*
+ *
+ * or .ps1:
+ *
+ *   & "$basedir/node_modules/@deepseek-ai/dsh/lib/bin.js" $args
+ *
+ * Returns the `node_modules/...` relative path found in the text (relative to
+ * the shim's own directory), or null when the file is not an npm shim.
+ */
+export function shimJsTarget(text: string): string | null {
+  const m = /node_modules[\\/][^"\s`']+?\.(?:c?js|mjs)/i.exec(text);
+  return m ? m[0] : null;
+}
 
 /**
  * Strip DLEVENT lines emitted by the injected stream-relay plugin from the

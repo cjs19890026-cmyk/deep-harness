@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import * as os from 'os';
+import * as path from 'path';
 import {
   parseHeadlessOutput,
   errorHint,
   versionCmp,
   contextWindowFor,
   MODEL_CONTEXT_WINDOWS,
+  streamRelayPatchYaml,
+  shimJsTarget,
 } from './pure';
 import { estimateTokens } from './context-meter';
 
@@ -91,5 +95,91 @@ describe('contextWindowFor', () => {
 
   it('exposes a window for every known model', () => {
     expect(Object.keys(MODEL_CONTEXT_WINDOWS).length).toBeGreaterThan(0);
+  });
+});
+
+describe('streamRelayPatchYaml', () => {
+  it('emits a file:// URL specifier importable by Node ESM', () => {
+    const relay = path.join(
+      os.tmpdir(), 'vault', '.obsidian', 'plugins',
+      'deepharness', 'generated', 'stream-relay.js',
+    );
+    const spec = nameSpecifier(streamRelayPatchYaml(relay));
+    expect(spec).toMatch(/^file:\/\//);
+    expect(spec).not.toContain('\\');
+    expect(spec).toContain('stream-relay.js');
+  });
+
+  it('embeds the relay plugin id in an insert entry', () => {
+    const yaml = streamRelayPatchYaml('/tmp/x/stream-relay.js');
+    expect(yaml).toContain('- insert:');
+    expect(yaml).toContain('- id: deepharness-stream-relay');
+    expect(yaml).toContain('name:');
+  });
+
+  // Regression for the Windows startup failure
+  // (ERR_UNSUPPORTED_ESM_URL_SCHEME: Received protocol 'd:').
+  it.skipIf(process.platform !== 'win32')(
+    'converts a Windows drive path to a file:// URL',
+    () => {
+      const spec = nameSpecifier(streamRelayPatchYaml(
+        'D:\\daily_work\\kyb_vault.obsidian\\plugins\\deepharness\\generated\\stream-relay.js',
+      ));
+      expect(spec).toBe(
+        'file:///D:/daily_work/kyb_vault.obsidian/plugins/deepharness/generated/stream-relay.js',
+      );
+    },
+  );
+});
+
+/** Extract the JSON string value of the `name:` line from a relay patch. */
+function nameSpecifier(yaml: string): string {
+  const line = yaml.split('\n').find((l) => l.trim().startsWith('name:'));
+  if (!line) throw new Error('no name: line in patch');
+  return JSON.parse(line.slice(line.indexOf(':') + 1).trim()) as string;
+}
+
+describe('shimJsTarget', () => {
+  // Content as npm generates it for a global install on Windows.
+  const cmdShim = [
+    '@ECHO off',
+    'GOTO start',
+    ':find_dp0',
+    'SET dp0=%~dp0',
+    'EXIT /b',
+    ':start',
+    'SETLOCAL',
+    'CALL :find_dp0',
+    '',
+    'IF EXIST "%dp0%\\node.exe" (',
+    '  SET "_prog=%dp0%\\node.exe"',
+    ') ELSE (',
+    '  SET "_prog=node"',
+    '  SET PATHEXT=%PATHEXT:;.JS;=;%',
+    ')',
+    '',
+    'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js" %*',
+    '',
+  ].join('\r\n');
+
+  it('extracts the node script from an npm .cmd shim', () => {
+    expect(shimJsTarget(cmdShim)).toBe('node_modules\\@deepseek-ai\\dsh\\lib\\bin.js');
+  });
+
+  it('extracts the node script from an npm .ps1 shim', () => {
+    expect(shimJsTarget(
+      '& "$basedir/node_modules/@deepseek-ai/dsh/lib/bin.js" $args',
+    )).toBe('node_modules/@deepseek-ai/dsh/lib/bin.js');
+  });
+
+  it('extracts the node script from the extensionless POSIX sh shim', () => {
+    expect(shimJsTarget(
+      'exec node  "$basedir/node_modules/@deepseek-ai/dsh/lib/bin.js" "$@"',
+    )).toBe('node_modules/@deepseek-ai/dsh/lib/bin.js');
+  });
+
+  it('returns null for non-shim content', () => {
+    expect(shimJsTarget('#!/usr/bin/env node\nconsole.log(1)')).toBeNull();
+    expect(shimJsTarget('random text')).toBeNull();
   });
 });

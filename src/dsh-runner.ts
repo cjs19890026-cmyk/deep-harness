@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { versionCmp } from './pure';
+import { versionCmp, streamRelayPatchYaml, shimJsTarget } from './pure';
 import type { DshDiagnostics } from './dsh-client';
 import type { DshSettings } from './settings';
 import { ensureObsidianSkill as writeObsidianSkill, MEMORY_FILE } from './obsidian-skill';
@@ -36,6 +36,30 @@ const COMMON_NODE_CANDIDATES = [
   '/usr/local/bin/node',
   '/usr/bin/node',
 ];
+
+/** Windows: `which` does not exist; Node's PATH lookup must use `where`. */
+const IS_WINDOWS = process.platform === 'win32';
+
+/** `where dsh` / `which dsh` — the PATH lookup command for this platform. */
+const WHICH_CMD = IS_WINDOWS ? 'where' : 'which';
+
+/** Extra common Windows locations for the dsh CLI (npm global prefix). */
+function windowsDshCandidates(): string[] {
+  const appData = process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming');
+  return [path.join(appData, 'npm', 'dsh.cmd')];
+}
+
+/** Common Windows locations for a Node.js binary. */
+function windowsNodeCandidates(): string[] {
+  const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';
+  const localAppData = process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local');
+  const userProfile = process.env.USERPROFILE ?? os.homedir();
+  return [
+    path.join(programFiles, 'nodejs', 'node.exe'),                        // official installer / nvm-windows
+    path.join(localAppData, 'Programs', 'nodejs', 'node.exe'),            // per-user installer
+    path.join(userProfile, 'scoop', 'apps', 'nodejs', 'current', 'node.exe'), // scoop
+  ];
+}
 
 /** Bump to force regeneration of the generated persona patch (see migration). */
 const PERSONA_VERSION = 4;
@@ -146,15 +170,23 @@ export class DshRunner {
       if (await this.exists(explicit)) return explicit;
       return null;
     }
-    // PATH lookup
+    // PATH lookup (`which` on POSIX, `where` on Windows)
     try {
-      const { stdout } = await execFileAsync('which', ['dsh'], { timeout: 5000 });
-      const p = stdout.trim();
-      if (p) return p;
+      const { stdout } = await execFileAsync(WHICH_CMD, ['dsh'], { timeout: 5000 });
+      // Prefer a .cmd shim on Windows: it is the launcher cmd.exe can run,
+      // and resolveDshScript parses it to find the real node script.
+      const hits = stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      const preferred = IS_WINDOWS
+        ? hits.find((p) => /\.cmd$/i.test(p)) ?? hits[0]
+        : hits[0];
+      if (preferred) return preferred;
     } catch {
       // not in PATH
     }
-    for (const candidate of COMMON_BIN_CANDIDATES) {
+    const candidates = IS_WINDOWS
+      ? windowsDshCandidates()
+      : COMMON_BIN_CANDIDATES;
+    for (const candidate of candidates) {
       if (await this.exists(candidate)) return candidate;
     }
     return null;
@@ -192,13 +224,23 @@ export class DshRunner {
     if (explicit) {
       return (await this.exists(explicit)) ? explicit : null;
     }
-    // PATH lookup (usually empty under Electron, but harmless to try)
+    // PATH lookup (`which` on POSIX, `where` on Windows)
     try {
-      const { stdout } = await execFileAsync('which', ['node'], { timeout: 5000 });
-      const p = stdout.trim();
-      if (p && (await this.exists(p))) return p;
+      const { stdout } = await execFileAsync(WHICH_CMD, ['node'], { timeout: 5000 });
+      const hits = stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      // Prefer the real .exe on Windows (the .cmd shim would need cmd.exe).
+      const preferred = IS_WINDOWS
+        ? hits.find((p) => /\.exe$/i.test(p)) ?? hits[0]
+        : hits[0];
+      if (preferred && (await this.exists(preferred))) return preferred;
     } catch {
       // not in PATH
+    }
+    if (IS_WINDOWS) {
+      for (const candidate of windowsNodeCandidates()) {
+        if (await this.exists(candidate)) return candidate;
+      }
+      return null;
     }
     for (const candidate of COMMON_NODE_CANDIDATES) {
       if (await this.exists(candidate)) return candidate;
@@ -227,14 +269,34 @@ export class DshRunner {
    * Resolve the real entry script of the dsh CLI.
    * npm's global bin entries are symlinks (dsh -> ../lib/node_modules/
    * @deepseek-ai/dsh/lib/bin.js); we need the real path to run it with node.
-   * Returns null when the resolved file is not node-runnable (a shell wrapper
+   * On Windows the npm bin is a .cmd/.ps1 launcher shim instead, so we parse
+   * the shim to recover the JS script it spawns node with.
+   * Returns null when no node-runnable script can be found (a shell wrapper
    * or native binary), so callers can surface a clear diagnostic instead of
    * failing later with a node syntax error.
    */
   resolveDshScript(dshBin: string): string | null {
     try {
       const real = fs.realpathSync(dshBin);
-      return isNodeScript(real) ? real : null;
+      if (isNodeScript(real)) return real;
+      if (IS_WINDOWS) {
+        const viaShim = this.resolveWindowsShim(real);
+        if (viaShim) return viaShim;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Parse a Windows npm launcher shim (.cmd/.ps1/sh) for the node script. */
+  private resolveWindowsShim(shim: string): string | null {
+    try {
+      const text = fs.readFileSync(shim, 'utf8');
+      const rel = shimJsTarget(text);
+      if (!rel) return null;
+      const target = path.join(path.dirname(shim), rel);
+      return isNodeScript(target) ? target : null;
     } catch {
       return null;
     }
@@ -278,7 +340,14 @@ export class DshRunner {
       const credSrc = path.join(this.dshHome(), '.credentials.yaml');
       const credDst = path.join(base, '.credentials.yaml');
       if (fs.existsSync(credSrc) && !fs.existsSync(credDst)) {
-        fs.symlinkSync(credSrc, credDst);
+        // Prefer a symlink (credentials stay live); Windows usually lacks
+        // symlink privileges (EPERM without Developer Mode / admin), so fall
+        // back to copying the file.
+        try {
+          fs.symlinkSync(credSrc, credDst);
+        } catch {
+          fs.copyFileSync(credSrc, credDst);
+        }
       }
       // The deepseek provider consumes `agent-default-model` settings
       // section (provider/model) plus its reasoningEffort.
@@ -465,15 +534,10 @@ export class DshRunner {
     const thinkYml = path.join(dir, 'stream.yml');
     try {
       fs.writeFileSync(thinkJs, STREAM_RELAY_SRC, 'utf8');
-      const yml = [
-        '# 由 deepharness 生成。实时输出 agent 的思考( reasoning )与',
-        '# 工具调用( tool )事件,格式 "DLEVENT\\t<json>" 供插件流式解析。',
-        '- insert:',
-        `    - id: deepharness-stream-relay`,
-        `      name: ${JSON.stringify(thinkJs)}`,
-        '',
-      ].join('\n');
-      fs.writeFileSync(thinkYml, yml, 'utf8');
+      // `name` must be a file:// URL: Node's ESM loader rejects bare Windows
+      // paths ("D:\\...") as plugin import specifiers
+      // (ERR_UNSUPPORTED_ESM_URL_SCHEME) — see streamRelayPatchYaml.
+      fs.writeFileSync(thinkYml, streamRelayPatchYaml(thinkJs), 'utf8');
       think = thinkYml;
     } catch {
       think = null;

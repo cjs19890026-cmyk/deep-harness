@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from 'child_process';
+import * as path from 'path';
 
 /**
  * Thin bridge between the plugin and the DeepSeek Harness CLI.
@@ -106,9 +107,14 @@ export class DshClient {
       // and dsh-permission-presets in the base bundle.
       if (opts.permissionMode) env.DSH_PERMISSION_MODE = opts.permissionMode;
       // Make sure the agent's own bash tool can still find node/npm.
+      // Use platform dirname + delimiter: on Windows a `C:\...\node.exe` path
+      // has no '/', and PATH entries are separated by ';' not ':'.
       if (opts.nodeBin) {
-        const nodeDir = opts.nodeBin.substring(0, opts.nodeBin.lastIndexOf('/'));
-        env.PATH = [nodeDir, env.PATH || '/usr/bin:/bin'].join(':');
+        const nodeDir = path.dirname(opts.nodeBin);
+        const fallback = process.platform === 'win32'
+          ? 'C:\\Windows\\System32;C:\\Windows'
+          : '/usr/bin:/bin';
+        env.PATH = [nodeDir, env.PATH || fallback].join(path.delimiter);
       }
       const startedAt = Date.now();
       let stdout = '';
