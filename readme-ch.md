@@ -53,7 +53,15 @@ dsh --profile headless "用 bash 运行 pwd 和 ls"
 
 ## 🛠 安装方法
 
-### 方法一：从 GitHub Release 安装（推荐）
+### 方法一：从 Obsidian 插件市场安装（推荐）
+
+1. 打开 Obsidian → **设置 → 第三方插件**。
+2. 如果处于安全模式，先关闭安全模式。
+3. 点击 **浏览**，搜索 **DeepHarness**。
+4. 点击 **安装**，然后 **启用**。
+5. 进入 DeepHarness 设置，点击 **运行检查**，确认 `dsh` 可用。
+
+### 方法二：从 GitHub Release 安装
 
 1. 打开本仓库的 [Releases](https://github.com/cjs19890026-cmyk/dsh-obsidian-DeepHarness/releases) 页面，下载最新版本附带的三个文件：`main.js`、`manifest.json`、`styles.css`。
 2. 在你的 vault 中创建插件目录：
@@ -71,9 +79,9 @@ dsh --profile headless "用 bash 运行 pwd 和 ls"
    └── styles.css
    ```
 
-> 如果 Releases 页面暂时还没有资产（当前仍是开发预览），请直接使用方法二。
+> 如果 Releases 页面暂时还没有资产（当前仍是开发预览），请直接使用方法三。
 
-### 方法二：从源码构建
+### 方法三：从源码构建
 
 ```bash
 git clone https://github.com/cjs19890026-cmyk/dsh-obsidian-DeepHarness.git

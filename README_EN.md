@@ -35,7 +35,17 @@ Verified locally: `dsh --profile headless "use bash to run pwd and ls…"` works
 
 3. Click "Run check" on the plugin settings page to confirm `dsh` is detected.
 
-## Installation (development)
+## Installation
+
+### From the Obsidian community plugin market (recommended)
+
+1. Open Obsidian → **Settings → Community plugins**.
+2. Turn off **Restricted mode** if needed.
+3. Click **Browse**, then search for **DeepHarness**.
+4. Click **Install**, then **Enable**.
+5. Open **DeepHarness settings** and run the **Check** button to verify `dsh` is detected.
+
+### From GitHub Release / source (development)
 
 ```bash
 npm install
