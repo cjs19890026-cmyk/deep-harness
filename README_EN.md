@@ -1,6 +1,6 @@
 # DeepHarness — DeepSeek Harness for Obsidian
 
-> **[中文版](./README.md) · English**
+> **[中文版](./readme-ch.md) · [English](./README.md)**
 
 A Claudian-style AI assistant plugin for Obsidian: it calls **DeepSeek Harness** directly from the side panel. Send a task to the chat window and the DSH agent works in your vault as its working directory, using its full toolset (bash, file read/write, web search, subagents, …) autonomously.
 
@@ -58,7 +58,7 @@ After enabling the plugin, click the bot icon in the left ribbon to open the cha
 - 📋 **Copy / Save as note** in one click; UI text is selectable
 - 🔗 **Reference current note**: the quote icon in the toolbar above the input inserts the note you are reading — if you have **text selected** in the note, the selection is inserted as a quoted block (auto-truncated with a source line); **without a selection** it inserts a bare wikilink (modeled after Claudian's New conversation)
 - @ **Mention notes**: type `@` in the input box to search and reference any note in the vault — live title/path matching, inserted as `[[path]]` (scoped by the "Working directory" setting)
-- ⚙️ **Command**: "Let DeepHarness process the current note"
+- ⚙️ **Command**: "Process current note"
 - 🗂 **Generated vault persona** (`.obsidian/plugins/deepharness/generated/vault.yml`)
   instructs the agent to use wikilinks and ask before destructive operations; freely editable
 - 🌐 **i18n UI** (English / 中文)

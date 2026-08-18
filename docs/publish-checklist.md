@@ -14,7 +14,7 @@
 - [x] `description` ≤250 字符、动作式开头、以句号结尾、无 emoji
 - [x] `isDesktopOnly: true`(使用 Node/Electron API)
 - [x] 命令 id 不含插件 id(`open-harness-chat` / `ask-active-note` ✓,Obsidian 会自动加前缀)
-- [x] `LICENSE`(MIT)、双语 `README.md` / `README_EN.md`
+- [x] `LICENSE`(MIT)、英文 `README.md` + 中文 `readme-ch.md`
 - [x] `npm run build` production 构建通过,52 tests 全过
 
 ## 1. 创建 GitHub Release(已自动化 ✅)
