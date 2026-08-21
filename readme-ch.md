@@ -22,6 +22,14 @@
 
 ---
 
+<div align="center">
+  <img src="docs/images/deepharness-demo.png" alt="DeepHarness 功能展示" width="85%" />
+  <br />
+  <em>功能展示 — 在侧边栏发送任务，DeepSeek Harness agent 在你的笔记库中自主执行</em>
+</div>
+
+---
+
 ## 👋 为什么选择 DeepHarness？
 
 市面上的 Obsidian AI 插件大多只做“问答 + RAG”：把笔记切片塞进提示词，或者只能围绕当前文档做补全。**DeepHarness 选择把 DeepSeek Harness（DSH）的完整 Agent 运行时直接搬进 Obsidian**：你在侧边栏发送一个任务，DSH agent 就以 vault 为工作目录自主执行，调用 **bash、文件读写、web 搜索、子代理、技能系统** 等完整工具——真正能读、能搜、能改、能写你的笔记。

@@ -4,6 +4,12 @@
 
 A Claudian-style AI assistant plugin for Obsidian: it calls **DeepSeek Harness** directly from the side panel. Send a task to the chat window and the DSH agent works in your vault as its working directory, using its full toolset (bash, file read/write, web search, subagents, …) autonomously.
 
+<p align="center">
+  <img src="docs/images/deepharness-demo.png" alt="DeepHarness feature showcase — DeepSeek Harness running inside Obsidian" width="85%" />
+  <br />
+  <em>Feature showcase — send a task in the side panel, and the DeepSeek Harness agent works in your vault.</em>
+</p>
+
 > Design document: [`DESIGN.md`](./DESIGN.md). This repo was designed based on an analysis of
 > [Enigmora/claudian](https://github.com/Enigmora/claudian); the key difference is that
 > **execution is pushed down to the DSH runtime** — the plugin only bridges the process and renders the UI.
